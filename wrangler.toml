@@ -1,7 +1,0 @@
-name = "stickman-studio"
-compatibility_date = "2025-01-01"
-pages_build_output_dir = "."
-
-# Workers AI binding (used by /api/ai fallback and /api/transcribe)
-[ai]
-binding = "AI"
