@@ -1,1 +1,0 @@
-# Stickman Studio
