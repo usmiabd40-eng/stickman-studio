@@ -46,7 +46,7 @@ async function ai(request, env) {
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 3000,
     });
-    return json({ text: d.response || '' });
+        return json({ text: typeof d.response === 'string' ? d.response : JSON.stringify(d.response ?? '') });
   }
   return json({ error: 'no AI backend configured' }, 500);
 }
