@@ -1,3 +1,7 @@
+// Stickman Studio backend (Cloudflare Pages "advanced mode").
+// Routes: POST /api/ai, /api/transcribe, /api/tts. Everything else serves your site.
+// Needs: Workers AI binding named "AI". Optional secrets: PASSCODE, ANTHROPIC_API_KEY, CLAUDE_MODEL.
+
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
     status,
@@ -11,6 +15,11 @@ const toBase64 = (buf) => {
     s += String.fromCharCode.apply(null, u.subarray(i, i + 32768));
   }
   return btoa(s);
+};
+
+const fromBase64 = (s) => {
+  const clean = String(s).replace(/^data:[^,]+,/, '');
+  return Uint8Array.from(atob(clean), (c) => c.charCodeAt(0));
 };
 
 async function ai(request, env) {
@@ -46,7 +55,8 @@ async function ai(request, env) {
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 3000,
     });
-        return json({ text: typeof d.response === 'string' ? d.response : JSON.stringify(d.response ?? '') });
+    const out = d.response;
+    return json({ text: typeof out === 'string' ? out : JSON.stringify(out ?? '') });
   }
   return json({ error: 'no AI backend configured' }, 500);
 }
@@ -65,17 +75,69 @@ async function transcribe(request, env) {
   return json({ text: r.text || '', vtt: r.vtt || '', segments: r.segments || [] });
 }
 
+const AURA_VOICES = [
+  'angus', 'asteria', 'arcas', 'orion', 'orpheus', 'athena',
+  'luna', 'zeus', 'perseus', 'helios', 'hera', 'stella',
+];
+
+// Turn whatever Workers AI returns into an audio/mpeg response.
+async function audioResponse(out) {
+  const headers = { 'content-type': 'audio/mpeg' };
+  if (out instanceof Response) {
+    if (!out.ok) return json({ error: 'tts failed (' + out.status + ')' }, 502);
+    return new Response(out.body, { headers });
+  }
+  if (out && typeof out === 'object' && typeof out.audio === 'string') {
+    return new Response(fromBase64(out.audio), { headers });
+  }
+  if (typeof out === 'string') return new Response(fromBase64(out), { headers });
+  if (out instanceof ArrayBuffer || ArrayBuffer.isView(out) || out instanceof ReadableStream) {
+    return new Response(out, { headers });
+  }
+  return json({ error: 'unexpected tts output' }, 502);
+}
+
+async function tts(request, env) {
+  if (!env.AI) return json({ error: 'AI binding not configured' }, 500);
+  let b;
+  try {
+    b = await request.json();
+  } catch {
+    return json({ error: 'invalid JSON body' }, 400);
+  }
+  const text = String(b.text || '').trim().slice(0, 1500);
+  if (!text) return json({ error: 'missing text' }, 400);
+
+  const [kind, val] = String(b.voice || 'aura:asteria').split(':');
+
+  if (kind === 'melo') {
+    const out = await env.AI.run('@cf/myshell-ai/melotts', { prompt: text, lang: val || 'en' });
+    return audioResponse(out);
+  }
+
+  const speaker = AURA_VOICES.includes(val) ? val : 'asteria';
+  const out = await env.AI.run(
+    '@cf/deepgram/aura-1',
+    { text, speaker, encoding: 'mp3' },
+    { returnRawResponse: true }
+  );
+  return audioResponse(out);
+}
+
+const ROUTES = { '/api/ai': ai, '/api/transcribe': transcribe, '/api/tts': tts };
+
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    const handler = ROUTES[path];
 
-    if (path === '/api/ai' || path === '/api/transcribe') {
+    if (handler) {
       if (request.method !== 'POST') return json({ error: 'POST only' }, 405);
       if (env.PASSCODE && request.headers.get('x-pass') !== env.PASSCODE) {
         return json({ error: 'unauthorized' }, 401);
       }
       try {
-        return path === '/api/ai' ? await ai(request, env) : await transcribe(request, env);
+        return await handler(request, env);
       } catch (e) {
         return json({ error: String(e.message || e) }, 500);
       }
