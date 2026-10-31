@@ -60,18 +60,23 @@ canvas{box-shadow:0 20px 60px #000a,0 0 0 1px var(--line);border-radius:14px}
 <div class="tabs"><button data-t="a" class="on">Scenes</button><button data-t="b">Script</button><button data-t="c">Audio</button><button data-t="e">Style</button><button data-t="d">Export</button></div>
 <section class="pn on" id="a">
 <div class="row2"><button class="pri" onclick="fi.click()">＋ Add images</button><input id="fi" type="file" accept="image/*" multiple hidden><button id="ti">＋ Title card</button><span class="m">Drag to reorder.</span></div>
+<div class="row2"><button id="vt">🎲 Vary transitions</button><button id="vx">🔊 Auto sound effects</button></div>
 <div id="grid"></div><div id="ins"></div></section>
 <section class="pn" id="b"><p class="m">Paste your script. Each paragraph (or two sentences) becomes a scene, matched to an image by filename keywords, otherwise in upload order. Sound effects and timing are suggested automatically.</p>
 <div class="row2"><input id="tp" placeholder="Topic, e.g. The Enron collapse" style="flex:1;min-width:180px"><button id="ds">✨ Doc Starter</button></div>
 <textarea id="sx" placeholder="In 2008, the bank collapsed overnight…&#10;&#10;Executives secretly moved millions…"></textarea>
 <div class="row2"><button class="pri" id="mt">✨ Match with AI</button><button id="mq">Quick match (no AI)</button></div></section>
 <section class="pn" id="c">
+<div class="row2"><b>🗣 Text to voice</b><span class="m">Turns your script into narration</span></div>
+<div class="row2"><select id="tvs" style="flex:1;min-width:200px"></select><button id="tvp">▶ Try voice</button></div>
+<div class="row2"><button class="pri" id="tvg">🗣 Generate voice from script</button><span id="tvx" class="m"></span></div>
+<p class="m" style="margin:2px 0 10px">Premium voices use more of your Cloudflare allowance (about 8,000 characters for a 1,300-word script). Budget voices cost almost nothing.</p>
 <div class="row2"><button onclick="fn.click()">🎙 Upload narration</button><input id="fn" type="file" accept="audio/*" hidden><span id="ni" class="m">none</span></div>
 <div class="row2"><button onclick="fm.click()">🎵 Upload music</button><input id="fm" type="file" accept="audio/*" hidden><span id="mi" class="m">none</span></div>
 <div class="row2"><span class="m">Music volume</span><input type="range" id="mv" min="0" max="1" step=".05" value=".25"></div>
 <label class="m" style="display:block;margin:6px 0"><input type="checkbox" id="dk" checked> Auto-lower music while the narrator speaks</label>
 <div class="row2"><span class="m">Narration volume</span><input type="range" id="nv" min="0" max="1.5" step=".05" value="1"></div><p class="m" style="margin:2px 0">Music fades in at the start and out at the end automatically.</p>
-<div class="row2"><button id="fit">🎯 Sync scenes to narration pauses</button></div>
+<div class="row2"><button id="fit">🎯 Sync scenes to narration pauses</button><button id="av">🔍 Analyze my voice</button></div><div id="va" class="m"></div>
 <div class="row2"><button onclick="fq.click()">📄 Import captions (.srt)</button><input id="fq" type="file" accept=".srt,.vtt,.txt" hidden><button id="cx">Clear imported</button></div>
 <div class="row2"><button id="tr">🎙 Auto-captions from narration (AI)</button></div>
 <p class="m">Need timed captions from your voice? Make a free .srt with CapCut auto-captions, YouTube Studio or Whisper, then import it here.</p>
@@ -95,7 +100,7 @@ canvas{box-shadow:0 20px 60px #000a,0 0 0 1px var(--line);border-radius:14px}
 </main>
 <script>
 const $=q=>document.querySelector(q),W=1920,H=1080,cv=$('#cv'),g=cv.getContext('2d');
-const MO=['zoom in','zoom out','pan left','pan right','shake','still'],TR=['fade','slide','flash','cut'],FX=['none','footsteps','suspense','impact','typing','alarm','cash','dark drone','deep impact','low rumble','whoosh','office ambience','keyboard','paper shuffle','trading floor','ticking clock','tension riser','phone ring','metal slam'];
+const MO=['zoom in','zoom out','pan left','pan right','shake','still'],TR=['fade','slide','flash','cut','slide right','slide up','zoom through','dip to black','wipe','glitch'],FX=['none','footsteps','suspense','impact','typing','alarm','cash','dark drone','deep impact','low rumble','whoosh','office ambience','keyboard','paper shuffle','trading floor','ticking clock','tension riser','phone ring','metal slam','camera shutter','heartbeat','gavel','record scratch','glass break','explosion','coins','cash register','siren','news sting','door slam','knock','applause','swoosh up','swoosh down','pop','ding','error buzz','glitch','static','thunder','rain','wind','sub drop','laser','bell toll','crowd murmur','stamp','camera flash','braam','bass drop','reverse hit'];const BASEFX=FX.length;
 let S={lib:[],scenes:[],script:'',mv:.25,caps:true},nar,mus,narRaw,musRaw,sel=0,cur=0,playing=false,AC,master,dst,srcs=[],t0=0,onend,pps=40,exporting=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const total=()=>S.scenes.reduce((a,s)=>a+s.dur,0),starts=()=>{let a=0;return S.scenes.map(s=>{const r=a;a+=s.dur;return r})};
@@ -111,7 +116,7 @@ const dec=raw=>ac().decodeAudioData(raw.slice(0));
 function nz(d){const b=AC.createBuffer(1,AC.sampleRate*d,AC.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1;return b}
 function burst(t,d,f,v,ty='lowpass'){const s=AC.createBufferSource();s.buffer=nz(d);const fl=AC.createBiquadFilter();fl.type=ty;fl.frequency.value=f;const n=AC.createGain();n.gain.setValueAtTime(v,t);n.gain.exponentialRampToValueAtTime(.001,t+d);s.connect(fl).connect(n).connect(master);s.start(t);srcs.push(s)}
 function tone(t,d,f,v,ty='sine',f2){const o=AC.createOscillator();o.type=ty;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);const n=AC.createGain();n.gain.setValueAtTime(v,t);n.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(n).connect(master);o.start(t);o.stop(t+d);srcs.push(o)}
-function sfx(n,t){ac();if(CU[n]){const s=AC.createBufferSource();s.buffer=CU[n];s.connect(master);s.start(t);srcs.push(s);return}
+function sfx1(n,t){ac();if(CU[n]){const s=AC.createBufferSource();s.buffer=CU[n];s.connect(master);s.start(t);srcs.push(s);return}
 if(n=='footsteps')for(let i=0;i<6;i++)burst(t+i*.4,.12,300,.9);
 if(n=='suspense')[55,58.5,110].forEach(f=>{const o=AC.createOscillator(),n=AC.createGain();o.type='sawtooth';o.frequency.value=f;n.gain.setValueAtTime(.001,t);n.gain.linearRampToValueAtTime(.12,t+2);n.gain.linearRampToValueAtTime(.001,t+4);o.connect(n).connect(master);o.start(t);o.stop(t+4);srcs.push(o)});
 if(n=='impact'){tone(t,.8,140,1,'sine',30);burst(t,.5,800,.8)}
@@ -152,7 +157,7 @@ if(o.bg=='box'){g.fillStyle='#000a';g.beginPath();g.roundRect(W/2-mx/2-30,y,mx+6
 g.fillStyle=o.color;g.lineJoin='round';g.lineWidth=fs/6;g.strokeStyle='#000';L.forEach((l,i)=>{const yy=y+12+lh/2+i*lh;if(o.bg!='box')g.strokeText(l,W/2,yy);g.fillText(l,W/2,yy)})}
 function draw(t){g.globalAlpha=1;g.fillStyle='#000';g.fillRect(0,0,W,H);const sc=S.scenes;if(!sc.length){g.fillStyle='#667';g.font='56px system-ui';g.textAlign='center';g.fillText('Add stickman images to begin',W/2,H/2);return}
 const st=starts();let i=0;st.forEach((s,k)=>{if(t>=s)i=k});const s=sc[i],e=t-st[i],p=Math.min(1,e/s.dur);
-if(e<.5&&i>0&&s.tr!='cut'){const q=e/.5;if(s.tr=='slide'){shot(sc[i-1],1,-q*W*.3,1);shot(s,0,(1-q)*W,1)}else{shot(sc[i-1],1,0,1);shot(s,p,0,q)}
+if(e<.5&&i>0&&s.tr!='cut'){const q=e/.5;trans(s,sc[i-1],q,p);
 if(s.tr=='flash'){g.fillStyle='#fff';g.globalAlpha=1-q;g.fillRect(0,0,W,H);g.globalAlpha=1}}else shot(s,p,0,1);
 const v=g.createRadialGradient(W/2,H/2,H*.45,W/2,H/2,H*1.0);v.addColorStop(0,'#0000');v.addColorStop(1,'#0007');g.fillStyle=v;g.fillRect(0,0,W,H);const o=sty();if(o.grain){g.globalAlpha=.12;for(let k=0;k<500;k++){g.fillStyle=Math.random()<.5?'#fff':'#000';g.fillRect(Math.random()*W,Math.random()*H,2,2)}g.globalAlpha=1}if(o.bars){g.fillStyle='#000';g.fillRect(0,0,W,130);g.fillRect(0,H-130,W,130)}if(S.cues?.length){const c=S.cues.find(c=>t>=c.s&&t<c.e);if(c)caption({cap:c.t,dur:1},0)}else caption(s,e);overlay(s,e);lowerThird(s,e)}
 /* ---------- UI ---------- */
@@ -196,7 +201,7 @@ $('#tlw').onclick=e=>{const r=$('#tl').getBoundingClientRect();seek((e.clientX-r
 $('#pp').onclick=()=>{if(!S.scenes.length)return;if(playing)stop();else play(cur>=total()-.05?0:cur)};$('#b0').onclick=()=>seek(0);
 $('#cps').onchange=e=>{S.caps=e.target.checked;draw(cur);save()};$('#mv').oninput=e=>{S.mv=+e.target.value;save()};
 function pjList(){$('#pj').innerHTML=IDX.map(x=>`<option value="${x.id}"${x.id==PID?' selected':''}>${esc(x.name)}</option>`).join('')}
-async function loadProj(id){stop();PID=id;S={lib:[],scenes:[],script:'',mv:.25,caps:true,cues:[]};nar=mus=narRaw=musRaw=null;sel=cur=0;FX.splice(19);CU={};CR={};const d=await idb(0,0,id);if(d?.cust)for(const k in d.cust){try{CR[k]=d.cust[k];CU[k]=await dec(CR[k]);FX.push(k)}catch(e){}}
+async function loadProj(id){stop();PID=id;S={lib:[],scenes:[],script:'',mv:.25,caps:true,cues:[]};nar=mus=narRaw=musRaw=null;sel=cur=0;FX.splice(BASEFX);CU={};CR={};const d=await idb(0,0,id);if(d?.cust)for(const k in d.cust){try{CR[k]=d.cust[k];CU[k]=await dec(CR[k]);FX.push(k)}catch(e){}}
 if(d){S={...S,...d.S};narRaw=d.narRaw;musRaw=d.musRaw;try{if(narRaw)nar=await dec(narRaw);if(musRaw)mus=await dec(musRaw)}catch(e){}await Promise.all(S.lib.map((_,i)=>ld(i)))}
 $('#sx').value=S.script;$('#mv').value=S.mv;$('#cps').checked=S.caps;$('#dk').checked=S.duck!==false;$('#nv').value=S.nv??1;fxBtns();info();bindSty();rAll();pjList()}
 $('#pj').onchange=e=>loadProj(e.target.value);
@@ -326,4 +331,93 @@ const TX={'⏮':'prev','＋ Add':'img','＋ New':'plus','＋ Title':'type','☁'
 function deco(root=document){root.querySelectorAll('button').forEach(b=>{if(b.dataset.d||b.id=='pp')return;const t=b.textContent.trim(),k=Object.keys(TX).find(x=>t.startsWith(x));if(!k)return;const rest=t.replace(/^\S+\s*/,'');b.dataset.d=1;b.innerHTML=svg(P[TX[k]])+(rest?`<span>${rest}</span>`:'')})}
 /* boot */
 (async()=>{IDX=(await idb(0,0,'index'))||[{id:'main',name:'My first video'}];await loadProj(IDX[0].id);deco();$('#pp').innerHTML=svg(P.play);$('#lg').innerHTML=svg(P.film);$('#st').textContent='Project restored'})();
+/* ===== UPGRADE: sound effects pack, transitions, text to voice, voice analysis ===== */
+function sfx(n,t){ac();sfx1(n,t);if(!CU[n])sfx2(n,t)}
+function sfx2(n,t){
+if(n=='camera shutter'){burst(t,.04,5000,.9,'highpass');tone(t,.05,1800,.4,'square',900);burst(t+.09,.05,4000,.8,'highpass');tone(t+.09,.06,1200,.4,'square',600)}
+if(n=='heartbeat')for(let i=0;i<5;i++){tone(t+i*.95,.2,70,1,'sine',38);tone(t+i*.95+.22,.22,60,.75,'sine',32)}
+if(n=='gavel'){burst(t,.08,1800,.9,'bandpass');tone(t,.22,190,1,'sine',80);tone(t,.12,520,.4,'triangle',260)}
+if(n=='record scratch'){bed(t,.55,2500,.7,'bandpass',.03,350);tone(t,.5,700,.3,'sawtooth',120)}
+if(n=='glass break'){burst(t,.6,9000,.8,'highpass');for(let i=0;i<14;i++)tone(t+Math.random()*.5,.18,3000+Math.random()*5000,.12,'triangle')}
+if(n=='explosion'){burst(t,2,700,1,'lowpass');tone(t,1.6,90,1.1,'sine',24);bed(t,3,150,.8,'lowpass',.05)}
+if(n=='coins')for(let i=0;i<9;i++)tone(t+i*.07+Math.random()*.04,.35,2600+Math.random()*1800,.22,'sine');
+if(n=='cash register'){burst(t,.07,3000,.8,'highpass');tone(t+.05,1.3,2400,.35,'sine');tone(t+.05,1.1,3200,.2,'sine');tone(t+.05,.9,4800,.1,'sine')}
+if(n=='siren')for(let i=0;i<3;i++){tone(t+i*1.1,.55,600,.22,'sawtooth',1000);tone(t+i*1.1+.55,.55,1000,.22,'sawtooth',600)}
+if(n=='news sting'){[523,659,784].forEach((f,i)=>tone(t+i*.13,.35,f,.28,'square'));tone(t+.39,1.1,1047,.35,'triangle');tone(t+.39,1.1,523,.2,'sine')}
+if(n=='door slam'){burst(t,.4,500,1,'lowpass');tone(t,.45,95,1,'sine',40);burst(t,.05,2500,.5,'bandpass')}
+if(n=='knock')for(let i=0;i<3;i++){tone(t+i*.24,.12,170,.9,'sine',90);burst(t+i*.24,.04,1000,.5,'bandpass')}
+if(n=='applause'){bed(t,5.5,2600,.22,'bandpass',.6);for(let i=0;i<110;i++)burst(t+.3+Math.random()*4.8,.04,2500+Math.random()*1500,.12,'bandpass')}
+if(n=='swoosh up')bed(t,.8,400,.8,'bandpass',.7,6000);
+if(n=='swoosh down')bed(t,.8,6000,.8,'bandpass',.12,350);
+if(n=='pop'){tone(t,.09,300,.9,'sine',1000);burst(t,.02,3000,.3,'highpass')}
+if(n=='ding'){tone(t,1.3,1320,.4,'sine');tone(t,1,2640,.15,'sine')}
+if(n=='error buzz'){tone(t,.3,160,.35,'square');tone(t+.38,.3,160,.35,'square')}
+if(n=='glitch')for(let i=0;i<12;i++){const k=t+i*.05+Math.random()*.03;tone(k,.04,200+Math.random()*3000,.2,'square');burst(k,.03,6000,.3,'highpass')}
+if(n=='static')bed(t,1.6,3000,.35,'highpass',.05);
+if(n=='thunder'){burst(t,.25,3000,.5,'highpass');bed(t,5,350,1,'lowpass',.4);bed(t+.5,4,120,.9,'lowpass',.8)}
+if(n=='rain')bed(t,8,5000,.22,'highpass',1.2);
+if(n=='wind')bed(t,7,300,.35,'bandpass',3,900);
+if(n=='sub drop')tone(t,1.6,130,1.1,'sine',26);
+if(n=='laser')tone(t,.28,2200,.28,'sawtooth',180);
+if(n=='bell toll'){[196,392,588,784].forEach((f,i)=>tone(t,3.2-i*.4,f,.5/(i+1),'sine'));burst(t,.05,2000,.3,'bandpass')}
+if(n=='crowd murmur'){bed(t,8,600,.16,'bandpass',2);bed(t,8,1100,.1,'bandpass',2);for(let i=0;i<20;i++)tone(t+Math.random()*7,.3,180+Math.random()*120,.03,'sawtooth')}
+if(n=='stamp'){tone(t,.25,110,1,'sine',45);burst(t,.1,1600,.8,'bandpass');burst(t+.03,.2,300,.6)}
+if(n=='camera flash'){tone(t,.6,4200,.1,'sine',1400);burst(t,.12,8000,.5,'highpass')}
+if(n=='braam'){tone(t,2.6,55,.8,'sawtooth',46);tone(t,2.4,110,.4,'sawtooth',90);tone(t,2,165,.25,'square',140);burst(t,.5,400,.7)}
+if(n=='bass drop'){tone(t,.6,200,.9,'sine',35);bed(t,1.5,200,.7,'lowpass',.02)}
+if(n=='reverse hit'){bed(t,1.8,200,.6,'lowpass',1.7,3000);tone(t+1.75,.9,80,1,'sine',28)}
+}
+/* ----- transitions ----- */
+function trans(s,pv,q,p){const tr=s.tr,qe=q*q*(3-2*q);
+if(tr=='slide'){shot(pv,1,-q*W*.3,1);shot(s,0,(1-q)*W,1)}
+else if(tr=='slide right'){shot(pv,1,q*W*.3,1);shot(s,0,-(1-q)*W,1)}
+else if(tr=='slide up'){g.save();g.translate(0,-qe*H*.3);shot(pv,1,0,1);g.restore();g.save();g.translate(0,(1-qe)*H);shot(s,0,0,1);g.restore()}
+else if(tr=='zoom through'){shot(s,p,0,1);g.save();const k=1+qe*.8;g.translate(W/2,H/2);g.scale(k,k);g.translate(-W/2,-H/2);shot(pv,1,0,1-qe);g.restore()}
+else if(tr=='dip to black'){if(q<.5)shot(pv,1,0,1-q*2);else shot(s,p,0,(q-.5)*2)}
+else if(tr=='wipe'){shot(pv,1,0,1);g.save();g.beginPath();g.rect(0,0,W*qe,H);g.clip();shot(s,p,0,1);g.restore();g.fillStyle='#fff';g.globalAlpha=.7*(1-Math.abs(qe-.5)*2);g.fillRect(W*qe-4,0,8,H);g.globalAlpha=1}
+else if(tr=='glitch'){shot(pv,1,0,1);if(q>=.85)shot(s,p,0,1);else{for(let i=0;i<10;i++){const y=Math.random()*H,h=30+Math.random()*160,off=(Math.random()-.5)*160,A=Math.random()<q;g.save();g.beginPath();g.rect(0,y,W,h);g.clip();shot(A?s:pv,A?p:1,off,1);g.restore()}g.fillStyle=Math.random()<.5?'#ff003c33':'#00e5ff33';g.fillRect(0,0,W,H)}}
+else{shot(pv,1,0,1);shot(s,p,0,q)}}
+function varyTr(){const pool=['fade','fade','slide','slide right','zoom through','wipe','slide up','dip to black','flash','glitch'];let last='';S.scenes.forEach((s,i)=>{if(!i){s.tr='fade';return}let c;do{c=pool[Math.floor(Math.random()*pool.length)]}while(c==last);s.tr=c;last=c})}
+const KW=[[/million|billion|\$|profit|money|cash|paid|fortune/i,'cash register'],[/collaps|crash|explod|bomb|blast|destroy/i,'explosion'],[/phone|called\b|calls\b/i,'phone ring'],[/alarm|warning|emergency/i,'siren'],[/court|judge|trial|verdict|sentenc/i,'gavel'],[/photo|camera|picture|footage/i,'camera shutter'],[/clock|deadline|hours|minutes|running out/i,'ticking clock'],[/secret|hidden|shadow|mystery|suspect/i,'suspense'],[/fraud|\blie[sd]?\b|fake|scam|false/i,'impact'],[/police|arrest|raid|investigat/i,'siren'],[/door|knock/i,'knock'],[/news|report|headline|announce/i,'news sting'],[/storm|thunder/i,'thunder'],[/crowd|protest|public/i,'crowd murmur'],[/computer|email|digital|data|hack/i,'keyboard'],[/heart|fear|panic|terror/i,'heartbeat'],[/trad(e|ing)|stock|market|shares/i,'trading floor'],[/\bdied\b|death|killed|fatal/i,'bell toll'],[/\bloss\b|\blost\b|bankrupt|ruin/i,'low rumble'],[/suddenly|shock|overnight/i,'whoosh']];
+function autoSfx(){let last=-2,n=0;S.scenes.forEach((s,i)=>{const has=s.sfx&&s.sfx!='none';if(s.ti!=null||has){if(has)last=i;return}if(i-last<2)return;const m=KW.find(k=>k[0].test(s.cap||''));if(m){s.sfx=m[1];last=i;n++}});return n}
+/* ----- text to voice ----- */
+const VOICES=[['aura:asteria','Asteria (female)'],['aura:luna','Luna (female)'],['aura:stella','Stella (female)'],['aura:athena','Athena (female)'],['aura:hera','Hera (female)'],['aura:orion','Orion (male)'],['aura:arcas','Arcas (male)'],['aura:perseus','Perseus (male)'],['aura:angus','Angus (male, Irish)'],['aura:orpheus','Orpheus (male)'],['aura:helios','Helios (male, British)'],['aura:zeus','Zeus (male, deep)'],['melo:en','Budget English (cheap)'],['melo:es','Budget Spanish (cheap)'],['melo:fr','Budget French (cheap)'],['melo:zh','Budget Chinese (cheap)'],['melo:ja','Budget Japanese (cheap)'],['melo:ko','Budget Korean (cheap)']];
+$('#tvs').innerHTML=VOICES.map(v=>`<option value="${v[0]}">${v[1]}</option>`).join('');
+try{const vv=localStorage.getItem('voice');if(vv)$('#tvs').value=vv}catch(e){}
+$('#tvs').onchange=e=>{try{localStorage.setItem('voice',e.target.value)}catch(er){}};
+async function ttsFetch(b){const go=()=>fetch((window.AI_URL||'/api')+'/tts',{method:'POST',headers:{'x-pass':localStorage.getItem('pass')||'','content-type':'application/json'},body:JSON.stringify(b)});let r=await go();if(r.status==401){const p=prompt('Enter the site passcode');if(!p)throw new Error('passcode needed');localStorage.setItem('pass',p);r=await go()}if(!r.ok){let m='HTTP '+r.status;try{m=(await r.json()).error||m}catch(e){}throw new Error(m)}return r.arrayBuffer()}
+function hardSplit(s,max){const o=[];while(s.length>max){let k=s.lastIndexOf(', ',max);if(k<max*.4)k=s.lastIndexOf(' ',max);if(k<1)k=max;o.push(s.slice(0,k+1).trim());s=s.slice(k+1).trim()}if(s)o.push(s);return o}
+function ttsParts(txt){const out=[];txt.replace(/\r/g,'').split(/\n\s*\n/).forEach(par=>{par=par.trim().replace(/\s+/g,' ');if(!par)return;const first=out.length;let sn=par.match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g)||[par],cur='';const flush=()=>{if(cur.trim())out.push({t:cur.trim(),gap:.12});cur=''};
+sn=sn.flatMap(s=>s.length>420?hardSplit(s.trim(),420):[s]);sn.forEach(s=>{if((cur+' '+s).length>420)flush();cur+=(cur?' ':'')+s});flush();if(out.length>first)out[out.length-1].gap=.6});return out}
+function wavPCM(ab){const ch=Math.min(2,ab.numberOfChannels),n=ab.length,sr=ab.sampleRate,dv=new DataView(new ArrayBuffer(44+n*ch*2)),w=(o,t)=>[...t].forEach((c,i)=>dv.setUint8(o+i,c.charCodeAt(0)));w(0,'RIFF');dv.setUint32(4,36+n*ch*2,true);w(8,'WAVEfmt ');dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,ch,true);dv.setUint32(24,sr,true);dv.setUint32(28,sr*ch*2,true);dv.setUint16(32,ch*2,true);dv.setUint16(34,16,true);w(36,'data');dv.setUint32(40,n*ch*2,true);const d=[];for(let c=0;c<ch;c++)d.push(ab.getChannelData(c));let o=44;for(let i=0;i<n;i++)for(let c=0;c<ch;c++){dv.setInt16(o,Math.max(-1,Math.min(1,d[c][i]))*32767,true);o+=2}return dv.buffer}
+$('#tvp').onclick=async()=>{const b=$('#tvp'),raw=($('#sx').value||'').trim(),txt=(raw?raw.split(/\n\s*\n/)[0]:'This is how your documentary narration will sound.').slice(0,200);b.disabled=true;$('#tvx').textContent='Loading sample…';try{const ab=await ttsFetch({text:txt,voice:$('#tvs').value});$('#tvx').textContent='';const a=new Audio(URL.createObjectURL(new Blob([ab],{type:'audio/mpeg'})));await a.play()}catch(e){$('#tvx').textContent='';alert('Voice is not available: '+e.message)}b.disabled=false};
+$('#tvg').onclick=async()=>{const txt=($('#sx').value||S.script||'').trim();if(!txt)return alert('Paste or generate a script first (Script tab).');const parts=ttsParts(txt);if(!parts.length)return;if(parts.length>90&&!confirm('This is a long script ('+parts.length+' parts). Continue?'))return;
+const v=$('#tvs').value,st=$('#tvx'),b=$('#tvg');b.disabled=true;ac();await AC.resume();stop();const bufs=new Array(parts.length);let done=0;const one=async i=>{let ab;try{ab=await ttsFetch({text:parts[i].t,voice:v})}catch(e){if(/passcode/.test(e.message))throw e;ab=await ttsFetch({text:parts[i].t,voice:v})}bufs[i]=await dec(ab);done++;st.textContent='Generating voice… '+done+'/'+parts.length};
+try{await one(0);let k=1;const wk=async()=>{while(k<parts.length){const i=k++;await one(i)}};await Promise.all([wk(),wk(),wk()]);
+const SR=24000;let T=0;const off=bufs.map((x,i)=>{const o=T;T+=x.duration+parts[i].gap;return o});const oc=new OfflineAudioContext(1,Math.ceil(T*SR)+SR,SR);bufs.forEach((x,i)=>{const s=oc.createBufferSource();s.buffer=x;s.connect(oc.destination);s.start(off[i])});
+const ab=await oc.startRendering();narRaw=wavPCM(ab);nar=await dec(narRaw);S.cues=[];info();if(S.scenes.length)fit();rAll();save();st.textContent='Voice ready ('+fmt(nar.duration)+')'+(S.scenes.length?'. Scenes synced.':'. Now match your script to images, then tap Sync.')}catch(e){st.textContent='';alert('Could not generate the voice: '+e.message)}b.disabled=false};
+/* ----- voice analysis ----- */
+let undoNar=null;const dB=x=>20*Math.log10(Math.max(x,1e-6));
+function frames(ms){const d=nar.getChannelData(0),w=Math.floor(nar.sampleRate*ms/1000),r=[];for(let i=0;i+w<=d.length;i+=w){let e=0,c=0;for(let j=0;j<w;j+=4){e+=d[i+j]**2;c++}r.push(Math.sqrt(e/c))}return r}
+function analyze(){if(!nar)return alert('Upload or generate narration first.');const fr=frames(50),mean=fr.reduce((a,b)=>a+b,0)/fr.length,th=mean*.15,sp=fr.filter(v=>v>=th),T=nar.duration,d=nar.getChannelData(0);
+const rms=Math.sqrt(sp.reduce((a,b)=>a+b*b,0)/Math.max(1,sp.length));let pk=0,clip=0;for(let i=0;i<d.length;i+=2){const a=Math.abs(d[i]);if(a>pk)pk=a;if(a>.99)clip++}
+const so=[...fr].sort((a,b)=>a-b),floor=so[Math.floor(so.length*.1)]||0,runs=[];let run=0;fr.forEach((v,i)=>{if(v<th)run++;else{if(run)runs.push([(i-run)*.05,run*.05]);run=0}});
+const mid=runs.filter(r=>r[0]>.2&&r[0]+r[1]<T-.2),pa=mid.filter(r=>r[1]>=.3),lg=mid.filter(r=>r[1]>=1.2),words=(S.scenes.length?S.scenes.map(s=>s.cap||'').join(' '):($('#sx').value||'')).trim().split(/\s+/).filter(Boolean).length,wpm=words?Math.round(words/(T/60)):0,rd=dB(rms),
+pace=!wpm?'Add your script to measure speed.':wpm<120?'Slow ('+wpm+' words/min). Good for dramatic parts, long for a whole video.':wpm>175?'Fast ('+wpm+' words/min). Viewers may struggle to follow.':'Good ('+wpm+' words/min). Documentary pace is 130 to 160.',
+lv=rd<-26?'Too quiet ('+rd.toFixed(0)+' dB). Use Fix volume.':rd>-12?'Very loud ('+rd.toFixed(0)+' dB). Use Fix volume.':'Good ('+rd.toFixed(0)+' dB).',
+nz=dB(floor)>-45?'Background noise is audible ('+dB(floor).toFixed(0)+' dB). A quieter room or a noise filter would help.':'Clean background.';
+$('#va').innerHTML=`<div style="background:#0f121a;border:1px solid var(--line);border-radius:10px;padding:10px 12px;line-height:1.6"><b>Voice report</b><br>Length: ${fmt(T)} · Speaking ${Math.round(sp.length/fr.length*100)}% of the time<br>Volume: ${lv}<br>Pace: ${pace}<br>Pauses: ${pa.length} natural pauses, ${lg.length} long ones (1.2s or more)${lg.length?': at '+lg.slice(0,6).map(r=>fmt(r[0])).join(', ')+(lg.length>6?'…':''):''}<br>Noise: ${nz}<br>${clip>20?'<span style="color:#ff8a6b">Clipping found ('+clip+' samples). Re-record a bit quieter.</span><br>':''}</div>
+<div class="row2" style="margin-top:8px"><button data-a="vol">Fix volume</button>${lg.length?'<button data-a="trim">Trim long silences</button>':''}${undoNar?'<button data-a="undo">↩ Undo trim</button>':''}<button data-a="sync">Sync scenes</button><button data-a="cap">Auto-captions</button></div>`}
+$('#av').onclick=analyze;
+$('#va').onclick=async e=>{const a=e.target.closest('button')?.dataset.a;if(!a)return;
+if(a=='vol'){const fr=frames(50),th=fr.reduce((x,y)=>x+y,0)/fr.length*.15,sp=fr.filter(v=>v>=th),rms=Math.sqrt(sp.reduce((x,y)=>x+y*y,0)/Math.max(1,sp.length)),g2=Math.min(1.5,Math.max(.3,Math.pow(10,(-20-dB(rms))/20)*(S.nv??1)));S.nv=+g2.toFixed(2);$('#nv').value=S.nv;save();$('#st').textContent='Narration volume set to '+S.nv}
+if(a=='trim'){const fr=frames(50),th=fr.reduce((x,y)=>x+y,0)/fr.length*.15,w=Math.floor(nar.sampleRate*.05),cuts=[];let run=0;fr.forEach((v,i)=>{if(v<th)run++;else{if(run>=24)cuts.push([i-run+10,i]);run=0}});if(!cuts.length)return alert('No long silences to trim.');
+const segs=[];let p=0;cuts.forEach(c=>{segs.push([p*w,c[0]*w]);p=c[1]});segs.push([p*w,nar.length]);const L=segs.reduce((x,s)=>x+s[1]-s[0],0),nb=ac().createBuffer(nar.numberOfChannels,L,nar.sampleRate);for(let c=0;c<nar.numberOfChannels;c++){const src=nar.getChannelData(c),ds=nb.getChannelData(c);let o=0;segs.forEach(s=>{ds.set(src.subarray(s[0],s[1]),o);o+=s[1]-s[0]})}
+undoNar=narRaw;narRaw=wavPCM(nb);nar=await dec(narRaw);S.cues=[];info();rTL();save();$('#st').textContent='Trimmed '+cuts.length+' silences. Re-run Sync and captions.';analyze()}
+if(a=='undo'&&undoNar){narRaw=undoNar;undoNar=null;nar=await dec(narRaw);info();rTL();save();analyze()}
+if(a=='sync'){fit();rAll();save();$('#st').textContent='Scenes synced to the voice'}
+if(a=='cap')$('#tr').click()};
+$('#vt').onclick=()=>{if(!S.scenes.length)return alert('Add scenes first.');varyTr();rIns();draw(cur);save();$('#st').textContent='Transitions varied'};
+$('#vx').onclick=()=>{if(!S.scenes.length)return alert('Add scenes first.');const n=autoSfx();rAll();save();$('#st').textContent=n?n+' sound effects added':'Nothing to add. Scenes need captions, or already have effects.'};
+
 </script></body></html>
