@@ -1,6 +1,7 @@
 // Stickman Studio backend (Cloudflare Pages "advanced mode").
 // Routes: POST /api/ai, /api/transcribe, /api/tts. Everything else serves your site.
-// Needs: Workers AI binding named "AI". Optional secrets: PASSCODE, ANTHROPIC_API_KEY, CLAUDE_MODEL.
+// Routes also: POST /api/image (AI stickman scenes), POST /api/project (cloud saves in R2).
+// Needs: Workers AI binding named "AI", R2 binding named "BUCKET" (for cloud saving). Optional secrets: PASSCODE, ANTHROPIC_API_KEY, CLAUDE_MODEL.
 
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), {
@@ -72,7 +73,7 @@ async function transcribe(request, env) {
     audio: toBase64(buf),
     vad_filter: true,
   });
-  return json({ text: r.text || '', vtt: r.vtt || '', segments: r.segments || [] });
+  return json({ text: r.text || '', vtt: r.vtt || '', segments: r.segments || [], words: r.words || [] });
 }
 
 const AURA_VOICES = [
@@ -124,7 +125,60 @@ async function tts(request, env) {
   return audioResponse(out);
 }
 
-const ROUTES = { '/api/ai': ai, '/api/transcribe': transcribe, '/api/tts': tts };
+const DEFAULT_STYLE =
+  'simple hand-drawn black stick figure cartoon, thick marker lines, flat minimal doodle, plain pure white background, no text';
+
+async function image(request, env) {
+  if (!env.AI) return json({ error: 'AI binding not configured' }, 500);
+  const b = await request.json().catch(() => ({}));
+  const p = String(b.prompt || '').trim().slice(0, 400);
+  if (!p) return json({ error: 'missing prompt' }, 400);
+  const style = String(b.style || DEFAULT_STYLE).trim().slice(0, 300);
+  const out = await env.AI.run('@cf/black-forest-labs/flux-1-schnell', {
+    prompt: style + '. Scene: ' + p,
+    steps: 4,
+  });
+  if (!out || !out.image) return json({ error: 'no image returned' }, 502);
+  return json({ image: out.image });
+}
+
+// Cloud project storage in R2. ?op=list | put | get | del  &id=...  &name=...
+async function project(request, env) {
+  if (!env.BUCKET) return json({ error: 'R2 binding "BUCKET" is not configured' }, 500);
+  const u = new URL(request.url);
+  const op = u.searchParams.get('op') || 'list';
+  const id = (u.searchParams.get('id') || '').replace(/[^\w-]/g, '').slice(0, 60);
+  if (op === 'list') {
+    const l = await env.BUCKET.list({ prefix: 'projects/', include: ['customMetadata'] });
+    return json({
+      projects: l.objects.map((o) => ({
+        id: o.key.slice(9, -5),
+        name: decodeURIComponent(o.customMetadata?.name || o.key.slice(9, -5)),
+        saved: o.uploaded,
+        size: o.size,
+      })),
+    });
+  }
+  if (!id) return json({ error: 'missing id' }, 400);
+  const key = 'projects/' + id + '.json';
+  if (op === 'put') {
+    const name = encodeURIComponent((u.searchParams.get('name') || id).slice(0, 80));
+    await env.BUCKET.put(key, await request.arrayBuffer(), { customMetadata: { name } });
+    return json({ ok: true });
+  }
+  if (op === 'get') {
+    const o = await env.BUCKET.get(key);
+    if (!o) return json({ error: 'not found' }, 404);
+    return new Response(o.body, { headers: { 'content-type': 'application/json' } });
+  }
+  if (op === 'del') {
+    await env.BUCKET.delete(key);
+    return json({ ok: true });
+  }
+  return json({ error: 'bad op' }, 400);
+}
+
+const ROUTES = { '/api/ai': ai, '/api/transcribe': transcribe, '/api/tts': tts, '/api/image': image, '/api/project': project };
 
 export default {
   async fetch(request, env) {

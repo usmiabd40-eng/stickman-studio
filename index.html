@@ -141,14 +141,15 @@ function hold(t,d,f,v,ty='sine'){const o=AC.createOscillator(),n=AC.createGain()
 function stopAll(){srcs.forEach(s=>{try{s.stop()}catch(e){}});srcs=[]}
 function stop(){playing=false;stopAll();$('#pp').innerHTML=svg(P.play)}
 async function play(from=0,end){ac();await AC.resume();stopAll();playing=true;onend=end;$('#pp').innerHTML=svg(P.pause);const n=AC.currentTime+.05;t0=n-from;
-if(nar&&from<nar.duration){const s=AC.createBufferSource(),gn=AC.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);s.start(n,from);srcs.push(s)}
+if(nar&&from<nar.duration){const s=AC.createBufferSource(),gn=AC.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(vchain(master));s.start(n,from);srcs.push(s)}
 if(mus){const s=AC.createBufferSource(),n2=AC.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(n,from,total()));s.start(n,from%mus.duration);srcs.push(s);
 if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let last=null;for(let i=Math.floor(from/.1);i<nar._sp.length;i++){const v=nar._sp[i];if(v!==last){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,n+Math.max(0,i*.1-from),.2);last=v}}}}
-starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none'&&st>=from)sfxV(f,n+st-from,S.scenes[i].sv??1)});loop()}
+starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none'&&st>=from)sfxV(f,n+Math.max(0,st+(S.scenes[i].so||0)-from),S.scenes[i].sv??1)});loop()}
 function loop(){if(!playing)return;cur=AC.currentTime-t0;if(cur>=total()){cur=total();const e=onend;stop();draw(cur-.01);ui();e&&e();return}draw(cur);ui();requestAnimationFrame(loop)}
 /* ---------- rendering ---------- */
 function shot(s,p,dx,a){if(s.ti!=null)return drawTitle(s,p,a,dx);const im=S.lib[s.im]?.el;if(!im)return;let z=1,ox=0,oy=0;const m=s.mo;
 if(m=='zoom in')z=1+.18*p;else if(m=='zoom out')z=1.18-.18*p;else if(m=='pan left'){z=1.15;ox=(.5-p)*.1*W}else if(m=='pan right'){z=1.15;ox=(p-.5)*.1*W}else if(m=='shake'){z=1.08;const k=performance.now()/40;ox=Math.sin(k*1.7)*14;oy=Math.cos(k*2.3)*10}
+if(m=='slow drift'){z=1.12;ox=(p-.5)*.06*W;oy=(.5-p)*.03*H}else if(m=='push in face'){z=1+.4*p;oy=H*.12*p}else if(m=='diagonal sweep'){z=1.2;ox=(.5-p)*.08*W;oy=(.5-p)*.08*H}else if(m=='custom'&&s.kb){const k=s.kb;z=k.z0+(k.z1-k.z0)*p;ox=(k.x0+(k.x1-k.x0)*p)*W;oy=(k.y0+(k.y1-k.y0)*p)*H}
 const b=Math.max(W/im.width,H/im.height)*z;g.save();g.filter=LK[sty().look]||'none';g.globalAlpha=a;g.translate(W/2+ox+dx,H/2+oy);g.scale(b,b);g.drawImage(im,-im.width/2,-im.height/2);g.restore()}
 function wrap(tx,mw){const L=[];let l='';tx.split(' ').forEach(w=>{const n=l?l+' '+w:w;if(g.measureText(n).width>mw&&l){L.push(l);l=w}else l=n});L.push(l);return L}
 function caption(s,e){if(!s.cap||!S.caps)return;const w=s.cap.trim().split(/\s+/),n=Math.ceil(w.length/8),k=Math.min(n-1,Math.floor(e/s.dur*n)),tx=w.slice(k*8,k*8+8).join(' ');
@@ -280,9 +281,9 @@ try{const mx=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{
 const ve=new VideoEncoder({output:(c,m)=>mx.addVideoChunk(c,m),error:e=>console.error(e)});ve.configure({codec:'avc1.640028',width:W,height:H,bitrate:8e6,framerate:FPS});
 es.textContent='Mixing audio…';await new Promise(r=>setTimeout(r));
 const oc=new OfflineAudioContext(2,Math.ceil(48000*T),48000),A0=AC,M0=master;let ab;AC=oc;master=oc.createGain();master.connect(oc.destination);
-try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);s.start(0)}
+try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(vchain(master));s.start(0)}
 if(mus){const s=oc.createBufferSource(),n2=oc.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(0,0,T));s.start(0);if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let l=null;nar._sp.forEach((v,i)=>{if(v!==l){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,i*.1,.2);l=v}})}}
-starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none')sfxV(f,st,S.scenes[i].sv??1)});ab=await oc.startRendering()}finally{AC=A0;master=M0}
+starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none')sfxV(f,Math.max(0,st+(S.scenes[i].so||0)),S.scenes[i].sv??1)});ab=await oc.startRendering()}finally{AC=A0;master=M0}
 const ae=new AudioEncoder({output:(c,m)=>mx.addAudioChunk(c,m),error:e=>console.error(e)});ae.configure({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:192000});
 const L=ab.getChannelData(0),R=ab.getChannelData(1),CH=4800;for(let o=0;o<L.length;o+=CH){const n=Math.min(CH,L.length-o),d=new Float32Array(n*2);d.set(L.subarray(o,o+n));d.set(R.subarray(o,o+n),n);const ad=new AudioData({format:'f32-planar',sampleRate:48000,numberOfFrames:n,numberOfChannels:2,timestamp:o/48*1000,data:d});ae.encode(ad);ad.close()}
 await ae.flush();
@@ -303,9 +304,9 @@ $('#tr').onclick=async()=>{if(!narRaw)return alert('Upload narration first.');co
 try{const j=await aiPost('transcribe',null,narRaw);S.cues=j.vtt?parseSRT(j.vtt):(j.segments||[]).map(s=>({s:s.start,e:s.end,t:String(s.text).trim()}));if(!S.cues.length)throw new Error('empty result');$('#st').textContent=S.cues.length+' captions created';draw(cur);save()}catch(e){$('#st').textContent='';alert('Transcription is not available here. Import an .srt instead. ('+e.message+')')}b.disabled=false};
 /* cloud render client + hooks used by the render server */
 async function mixAudio(T){ac();const oc=new OfflineAudioContext(2,Math.ceil(48000*T),48000),A0=AC,M0=master;AC=oc;master=oc.createGain();master.connect(oc.destination);
-try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);s.start(0)}
+try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(vchain(master));s.start(0)}
 if(mus){const s=oc.createBufferSource(),n2=oc.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(0,0,T));s.start(0);if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let l=null;nar._sp.forEach((v,i)=>{if(v!==l){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,i*.1,.2);l=v}})}}
-starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none')sfxV(f,st,S.scenes[i].sv??1)});return await oc.startRendering()}finally{AC=A0;master=M0}}
+starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none')sfxV(f,Math.max(0,st+(S.scenes[i].so||0)),S.scenes[i].sv??1)});return await oc.startRendering()}finally{AC=A0;master=M0}}
 function wavB64(ab){const L=ab.getChannelData(0),R=ab.getChannelData(1),n=L.length,b=new DataView(new ArrayBuffer(44+n*4)),w=(o,t)=>[...t].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));w(0,'RIFF');b.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');b.setUint32(16,16,true);b.setUint16(20,1,true);b.setUint16(22,2,true);b.setUint32(24,48000,true);b.setUint32(28,192000,true);b.setUint16(32,4,true);b.setUint16(34,16,true);w(36,'data');b.setUint32(40,n*4,true);for(let i=0;i<n;i++){b.setInt16(44+i*4,Math.max(-1,Math.min(1,L[i]))*32767,true);b.setInt16(46+i*4,Math.max(-1,Math.min(1,R[i]))*32767,true)}return b64(b.buffer)}
 window.__load=async j=>{S={...S,...j.S};narRaw=j.nar?unb64(j.nar):null;musRaw=j.mus?unb64(j.mus):null;nar=narRaw?await dec(narRaw):null;mus=musRaw?await dec(musRaw):null;CU={};CR={};for(const k in j.cust||{}){CR[k]=unb64(j.cust[k]);CU[k]=await dec(CR[k]);FX.push(k)}await Promise.all(S.lib.map((_,i)=>ld(i)));await document.fonts.ready;return{T:total(),FPS:30}};
 window.__frames=(i,n)=>{const T=total(),o=[];for(let k=i;k<i+n;k++){draw(Math.min(k/30,T-.01));o.push(cv.toDataURL('image/jpeg',.92).slice(23))}return o};
@@ -420,4 +421,152 @@ if(a=='cap')$('#tr').click()};
 $('#vt').onclick=()=>{if(!S.scenes.length)return alert('Add scenes first.');varyTr();rIns();draw(cur);save();$('#st').textContent='Transitions varied'};
 $('#vx').onclick=()=>{if(!S.scenes.length)return alert('Add scenes first.');const n=autoSfx();rAll();save();$('#st').textContent=n?n+' sound effects added':'Nothing to add. Scenes need captions, or already have effects.'};
 
+
+/* ===== UPGRADE 2: AI scene images, undo/redo, cloud projects ===== */
+/* --- undo / redo --- */
+let HS=[],hi=-1,ht=0,hq=false;
+const snap=()=>JSON.stringify({sc:S.scenes,sty:S.sty,cues:S.cues,caps:S.caps,mv:S.mv,nv:S.nv,duck:S.duck});
+function hbtn(){$('#un').disabled=hi<1;$('#re').disabled=hi>=HS.length-1}
+function hpush(){if(hq)return;const s=snap();if(s===HS[hi])return;const n=Date.now();HS=HS.slice(0,hi+1);if(n-ht<700&&hi>0)HS[hi]=s;else{HS.push(s);hi++}ht=n;if(HS.length>100){HS.shift();hi--}hbtn()}
+const _save=save;save=function(){hpush();_save();cloudAuto()};
+const _lp=loadProj;loadProj=async function(id){await _lp(id);HS=[snap()];hi=0;ht=0;hbtn()};
+function happly(i){if(i<0||i>=HS.length)return;hi=i;const o=JSON.parse(HS[i]);hq=true;stop();S.scenes=o.sc;S.sty=o.sty;S.cues=o.cues;S.caps=o.caps;S.mv=o.mv;S.nv=o.nv;S.duck=o.duck;sel=Math.min(sel,Math.max(0,S.scenes.length-1));$('#cps').checked=S.caps!==false;$('#mv').value=S.mv;$('#nv').value=S.nv??1;$('#dk').checked=S.duck!==false;bindSty();rAll();_save();hq=false;hbtn()}
+$('#nw').insertAdjacentHTML('beforebegin','<button id="un" title="Undo (Ctrl+Z)" disabled>↶</button><button id="re" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>');
+$('#un').onclick=()=>happly(hi-1);$('#re').onclick=()=>happly(hi+1);
+addEventListener('keydown',e=>{const t=e.target;if(t.tagName=='TEXTAREA'||(t.tagName=='INPUT'&&!/range|checkbox|color/.test(t.type)))return;if(!(e.ctrlKey||e.metaKey))return;const k=e.key.toLowerCase();if(k=='z'){e.preventDefault();happly(e.shiftKey?hi+1:hi-1)}else if(k=='y'){e.preventDefault();happly(hi+1)}});
+/* --- AI scene images --- */
+const DEF_IMG_STYLE='simple hand-drawn black stick figure cartoon, thick marker lines, flat minimal doodle, plain pure white background, no text';
+$('#a .row2').insertAdjacentHTML('afterend',`<div class="row2"><input id="gp" placeholder="Describe a scene, e.g. stickman shredding documents at night" style="flex:1;min-width:200px"><button class="pri" id="gb">🎨 Generate image</button></div><details class="m" style="margin:0 0 6px"><summary>Image style (your look)</summary><textarea id="gs" style="min-height:60px;margin-top:6px"></textarea><div class="m">Applied to every generated image. Keep it the same across a video.</div></details>`);
+try{$('#gs').value=localStorage.getItem('imgstyle')||DEF_IMG_STYLE}catch(e){$('#gs').value=DEF_IMG_STYLE}
+$('#gs').oninput=e=>{try{localStorage.setItem('imgstyle',e.target.value)}catch(er){}};
+async function genImg(p){const j=await aiPost('image',{prompt:p,style:$('#gs').value});
+const im=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src='data:image/jpeg;base64,'+j.image});
+const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);const k=H/im.height;x.drawImage(im,(W-im.width*k)/2,0,im.width*k,H);
+const lib=S.lib.push({name:'ai-'+Date.now()+'.jpg',url:c.toDataURL('image/jpeg',.88)})-1;await ld(lib);return lib}
+async function withBusy(b,f){b.disabled=true;$('#st').textContent='Drawing image…';try{await f()}catch(e){alert('Image generation failed: '+e.message)}finally{b.disabled=false;$('#st').textContent=''}}
+$('#gb').onclick=()=>{const p=$('#gp').value.trim();if(!p)return alert('Describe the scene first.');withBusy($('#gb'),async()=>{const im=await genImg(p),at=S.scenes.length?sel+1:0;S.scenes.splice(at,0,{im,dur:5,mo:MO[S.scenes.length%5],tr:'fade',cap:'',sfx:'none'});sel=at;$('#gp').value='';rAll();save()})};
+const _rIns=rIns;rIns=function(){_rIns();const s=S.scenes[sel];if(!s||s.ti!=null)return;$('#ins').insertAdjacentHTML('beforeend','<div class="row2"><button id="gi">🎨 Redraw this scene with AI</button></div>');
+$('#gi').onclick=()=>{const p=prompt('Describe this scene',s.cap||'');if(!p)return;withBusy($('#gi'),async()=>{s.im=await genImg(p);rAll();save()})}};
+rIns();
+/* --- cloud projects (Cloudflare R2) --- */
+const projJSON=()=>JSON.stringify({v:1,S:{...S,lib:S.lib.map(({name,url})=>({name,url}))},nar:narRaw&&b64(narRaw),mus:musRaw&&b64(musRaw),cust:Object.fromEntries(Object.entries(CR).map(([k,v])=>[k,b64(v)]))});
+$('#d').insertAdjacentHTML('beforeend',`<h3 style="font:800 16px 'Bricolage Grotesque',sans-serif;margin:18px 0 4px">Cloud projects</h3><p class="m">Saves the whole project (images and audio) to your Cloudflare storage, so you can open it on any device.</p>
+<div class="row2"><button class="pri" id="cs1">☁ Save to cloud</button><button id="cs2">☁ Open from cloud</button><span id="cs3" class="m"></span></div>
+<label class="m" style="display:block;margin:6px 0"><input type="checkbox" id="cs4"> Auto-save to cloud (15 s after each change)</label><div id="cs5"></div>`);
+const cmsg=t=>$('#cs3').textContent=t;
+async function cloudSave(){const nm=IDX.find(x=>x.id==PID)?.name||'Untitled';cmsg('Uploading…');try{await aiPost('project?op=put&id='+PID+'&name='+encodeURIComponent(nm),null,projJSON());cmsg('Cloud saved ✓ '+new Date().toLocaleTimeString())}catch(e){cmsg('Cloud save failed: '+e.message)}}
+let cat;function cloudAuto(){if(!$('#cs4').checked)return;clearTimeout(cat);cat=setTimeout(cloudSave,15000)}
+try{$('#cs4').checked=localStorage.getItem('cloudauto')=='1'}catch(e){}
+$('#cs4').onchange=e=>{try{localStorage.setItem('cloudauto',e.target.checked?'1':'0')}catch(er){}if(e.target.checked)cloudSave()};
+$('#cs1').onclick=cloudSave;
+$('#cs2').onclick=async()=>{cmsg('Loading list…');try{const l=(await aiPost('project?op=list',{})).projects;cmsg('');$('#cs5').innerHTML=l.length?`<div class="row2"><select id="cl" style="flex:1">${l.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} · ${(p.size/1048576).toFixed(1)} MB · ${new Date(p.saved).toLocaleString()}</option>`).join('')}</select><button id="co" class="pri">Open</button><button id="cd">Delete</button></div>`:'<p class="m">No cloud projects yet.</p>';
+if(l.length){$('#co').onclick=async()=>{const id=$('#cl').value,nm=l.find(p=>p.id==id).name;cmsg('Downloading…');try{const j=await aiPost('project?op=get&id='+id,{});if(!IDX.find(x=>x.id==id))IDX.push({id,name:nm});await idb(1,{S:j.S,narRaw:j.nar?unb64(j.nar):undefined,musRaw:j.mus?unb64(j.mus):undefined,cust:j.cust&&Object.fromEntries(Object.entries(j.cust).map(([k,v])=>[k,unb64(v)]))},id);await idb(1,IDX,'index');await loadProj(id);cmsg('Opened ✓')}catch(e){cmsg('Open failed: '+e.message)}};
+$('#cd').onclick=async()=>{const id=$('#cl').value;if(!confirm('Delete this cloud copy? Local copies stay.'))return;try{await aiPost('project?op=del&id='+id,{});$('#cs2').click()}catch(e){cmsg('Delete failed: '+e.message)}}}}catch(e){cmsg('Cloud list failed: '+e.message)}};
+
+/* ===== UPGRADE 3: word captions, auto-build, multi-select, templates, Ken Burns, voice EQ, music, timeline drag, YouTube pack ===== */
+MO.push('slow drift','push in face','diagonal sweep','custom');
+document.head.insertAdjacentHTML('beforeend','<style>.sc{position:relative}.hd{position:absolute;right:0;top:0;bottom:0;width:12px;cursor:ew-resize;background:#fff5;touch-action:none}.fx{cursor:grab;touch-action:none;z-index:4}</style>');
+/* --- word-by-word captions --- */
+let DT=0;const _dr=draw;draw=function(t){DT=t;_dr(t)};
+$('#e .grid2').insertAdjacentHTML('beforeend','<label class="chk"><input type="checkbox" id="swc">&nbsp;Highlight each spoken word</label>');
+$('#swc').onchange=e=>{S.wc=e.target.checked;draw(cur);save()};
+function WL(){if(S.words?.length)return S.words;if(S.cues._w)return S.cues._w;const o=[];S.cues.forEach(c=>{const w=String(c.t).trim().split(/\s+/).filter(Boolean),d=(c.e-c.s)/Math.max(1,w.length);w.forEach((x,i)=>o.push({w:x,s:c.s+i*d,e:c.s+(i+1)*d}))});return S.cues._w=o}
+const _ap=aiPost;aiPost=async function(ep,b,raw){const j=await _ap(ep,b,raw);if(ep=='transcribe'){S.words=(j.words||[]).map(x=>({w:String(x.word||x.w||'').trim(),s:x.start??x.s,e:x.end??x.e})).filter(x=>x.w&&x.e>x.s);if(!S.words.length)delete S.words}return j};
+const _cap=caption;caption=function(s,e){if(!S.wc||!s.cap||!S.caps)return _cap(s,e);let ws,ci;
+if(S.cues?.length){const L=WL();ci=L.findIndex(x=>DT>=x.s&&DT<x.e);if(ci<0){ci=L.findIndex(x=>x.s>DT);ci=ci<0?L.length-1:Math.max(0,ci-1);if(DT-L[ci].e>.6)return}ws=L.map(x=>x.w)}
+else{ws=s.cap.trim().split(/\s+/);ci=Math.min(ws.length-1,Math.floor(e/s.dur*ws.length))}
+const N=4,a=Math.floor(ci/N)*N,ch=ws.slice(a,a+N),k=ci-a,o=sty(),fs=o.size;g.font=`${o.weight} ${fs}px "${o.font}",system-ui,sans-serif`;g.textBaseline='middle';g.textAlign='left';
+const sp=g.measureText(' ').width,wd=ch.map(x=>g.measureText(x).width),tw=wd.reduce((p,c)=>p+c,0)+sp*(ch.length-1),h=fs*1.25+24,y=o.pos=='top'?150:o.pos=='mid'?(H-h)/2:H-(o.bars?190:60)-h;
+if(o.bg=='box'){g.fillStyle='#000a';g.beginPath();g.roundRect(W/2-tw/2-30,y,tw+60,h,18);g.fill()}
+g.lineJoin='round';g.lineWidth=fs/6;let x=W/2-tw/2;ch.forEach((t,j)=>{const on=j==k,cx=x+wd[j]/2,cy=y+h/2;g.save();if(on){g.translate(cx,cy);g.scale(1.12,1.12);g.translate(-cx,-cy)}g.fillStyle=on?'#ffd23f':o.color;g.strokeStyle='#000';if(o.bg!='box')g.strokeText(t,x,cy);g.fillText(t,x,cy);g.restore();x+=wd[j]+sp});g.textAlign='center'};
+/* --- auto-build --- */
+$('#mt').parentElement.insertAdjacentHTML('beforebegin','<div class="row2"><button class="pri" id="ab">🚀 Auto-build video from script</button><span id="abs" class="m"></span></div>');
+$('#ab').onclick=async()=>{const sx=($('#sx').value||'').trim();if(!sx)return alert('Paste or generate a script first.');const b=$('#ab'),say=t=>$('#abs').textContent=t;b.disabled=true;
+try{if(!S.lib.length){const ps=sx.split(/\n+/).map(x=>x.trim()).filter(Boolean).slice(0,12);for(let i=0;i<ps.length;i++){say(`Drawing image ${i+1}/${ps.length}…`);await genImg(ps[i].slice(0,200))}}
+say('Matching script to scenes…');await runMatch(true);
+say('Generating voice…');await $('#tvg').onclick();if(!nar)throw new Error('voice was not generated');
+say('Transitions and sound effects…');varyTr();autoSfx();
+say('Captions…');try{await document.querySelector('#c #tr').onclick()}catch(e){}
+S.wc=true;$('#swc').checked=true;rAll();save();say('Done ✓ Review in Scenes, then export.')}catch(e){say('Stopped: '+e.message)}b.disabled=false};
+/* --- sound search + categories --- */
+const CAT={impact:'impact,deep impact,metal slam,explosion,glass break,gavel,door slam,bass drop,sub drop,braam,reverse hit,stamp,thunder,record scratch',ambience:'dark drone,low rumble,office ambience,trading floor,crowd murmur,rain,wind,static,ticking clock,tension riser',ui:'whoosh,swoosh up,swoosh down,pop,ding,error buzz,laser,glitch,news sting,camera shutter,camera flash,cash,coins,cash register,alarm,siren,phone ring,bell toll,suspense',human:'footsteps,typing,keyboard,paper shuffle,knock,applause,heartbeat,crowd murmur'};
+const catOf=n=>Object.keys(CAT).filter(k=>CAT[k].split(',').includes(n));
+$('#fxb').insertAdjacentHTML('beforebegin','<div class="row2"><input id="fs" placeholder="Search sounds…" style="flex:1"><select id="fcat"><option value="">All</option><option>impact</option><option>ambience</option><option>ui</option><option>human</option><option>custom</option></select></div>');
+function fxFilter(){const q=$('#fs').value.toLowerCase(),c=$('#fcat').value;document.querySelectorAll('#fxb button').forEach(b=>{const n=b.dataset.f||'',k=catOf(n),ok=n.toLowerCase().includes(q)&&(!c||(c=='custom'?!k.length&&!['footsteps'].includes(n)&&!KNOWN.has(n):k.includes(c)));b.style.display=ok?'':'none'})}
+const KNOWN=new Set(Object.values(CAT).join(',').split(','));
+$('#fs').oninput=fxFilter;$('#fcat').onchange=fxFilter;new MutationObserver(fxFilter).observe($('#fxb'),{childList:true});fxFilter();
+/* --- multi-select scenes --- */
+let MS=new Set(),smode=false;
+$('#grid').insertAdjacentHTML('afterend','<div id="bk2" class="row2" style="display:none;background:var(--p2);padding:8px;border-radius:10px;border:1px solid var(--line)"></div>');
+$('#vt').insertAdjacentHTML('beforebegin','<button id="sm">☑ Select several</button>');
+const mark=()=>document.querySelectorAll('#grid .th').forEach(t=>t.style.outline=MS.has(+t.dataset.i)?'3px solid var(--a2)':'');
+const _rg=rGrid;rGrid=function(){_rg();mark()};
+function bulk(){MS=new Set([...MS].filter(i=>i<S.scenes.length));const b=$('#bk2');b.style.display=MS.size<2?'none':'flex';if(MS.size<2)return;b.innerHTML=`<b>${MS.size} scenes</b><select id="bmo">${opt(MO)}</select><button data-k="mo">Set motion</button><select id="btr">${opt(TR)}</select><button data-k="tr">Set transition</button><select id="bfx">${opt(FX)}</select><button data-k="sfx">Set sound</button>`}
+$('#sm').onclick=()=>{smode=!smode;MS.clear();if(smode&&S.scenes.length)MS.add(sel);$('#sm').textContent=smode?'☑ Selecting: tap scenes':'☑ Select several';mark();bulk()};
+$('#grid').addEventListener('click',e=>{const t=e.target.closest('.th');if(t&&(smode||e.shiftKey||e.ctrlKey||e.metaKey)){e.stopPropagation();const i=+t.dataset.i;MS.has(i)?MS.delete(i):MS.add(i);mark();bulk()}},true);
+$('#bk2').onclick=e=>{const k=e.target.dataset.k;if(!k)return;const v=$({mo:'#bmo',tr:'#btr',sfx:'#bfx'}[k]).value;MS.forEach(i=>S.scenes[i][k]=v);rAll();save();bulk()};
+/* --- inspector extras: Ken Burns custom, music level, templates --- */
+const TPK=['mo','tr','ov','ova','lt','l2','mvol','kb'],gt=()=>{try{return JSON.parse(localStorage.getItem('tpls')||'[]')}catch(e){return[]}};
+const _rI2=rIns;rIns=function(){_rI2();const s=S.scenes[sel];if(!s)return;let h='';
+if(s.mo=='custom'&&s.ti==null){s.kb=s.kb||{z0:1,z1:1.3,x0:0,x1:0,y0:0,y1:0};h+='<div class="m" style="margin-top:8px">Custom camera: start and end framing</div>'+[['z0','Start zoom',1,2],['z1','End zoom',1,2],['x0','Start X',-.2,.2],['x1','End X',-.2,.2],['y0','Start Y',-.2,.2],['y1','End Y',-.2,.2]].map(([k,l,a,b])=>`<label>${l}</label><input type="range" data-kb="${k}" min="${a}" max="${b}" step=".01" value="${s.kb[k]}">`).join('')}
+h+=`<label>Music level in this scene: <span id="mvl">${Math.round((s.mvol??1)*100)}</span>%</label><input type="range" id="mvs" min="0" max="150" value="${Math.round((s.mvol??1)*100)}">
+<div class="row2" style="margin-top:8px"><select id="tps">${gt().map((t,i)=>`<option value="${i}">${esc(t.n)}</option>`).join('')||'<option value="">(no saved looks)</option>'}</select><button id="tpa">Apply look</button><button id="tpn">💾 Save this look</button></div>`;
+$('#ins').insertAdjacentHTML('beforeend',h);
+$('#mo')?.addEventListener('change',()=>rIns());
+document.querySelectorAll('[data-kb]').forEach(i=>i.oninput=e=>{s.kb[i.dataset.kb]=+e.target.value;draw(cur);save()});
+$('#mvs').oninput=e=>{s.mvol=+e.target.value/100;$('#mvl').textContent=e.target.value;save()};
+$('#tpn').onclick=()=>{const n=prompt('Name this look (motion, transition, overlay, lower-third)');if(!n)return;const l={};TPK.forEach(k=>{if(s[k]!=null)l[k]=s[k]});try{localStorage.setItem('tpls',JSON.stringify([...gt(),{n,l}]))}catch(e){}rIns()};
+$('#tpa').onclick=()=>{const t=gt()[+$('#tps').value];if(!t)return;(MS.size>1?[...MS]:[sel]).forEach(i=>Object.assign(S.scenes[i],JSON.parse(JSON.stringify(t.l))));rAll();save()}};
+rIns();
+/* --- per-scene music volume --- */
+const _mo=musOut;musOut=function(n,from,T){const m=_mo(n,from,T),x=AC.createGain(),st=starts(),v=i=>S.scenes[i].mvol??1;x.connect(m);let c=1;st.forEach((t,i)=>{if(t<=from)c=v(i)});x.gain.setValueAtTime(c,n);
+st.forEach((t,i)=>{if(t>from){if(v(i)!=c){const tt=n+t-from;x.gain.setValueAtTime(c,Math.max(n,tt-.3));x.gain.linearRampToValueAtTime(v(i),tt+.3)}c=v(i)}});return x};
+/* --- voice EQ, compressor, clean-up --- */
+function vchain(dest){const e=S.eq;if(!e||!e.on)return dest;const f=(ty,fr,ga,q)=>{const b=AC.createBiquadFilter();b.type=ty;b.frequency.value=fr;if(ga!=null)b.gain.value=ga;if(q)b.Q.value=q;return b},hp=f('highpass',e.hp||80),lo=f('lowshelf',150,e.lo||0),md=f('peaking',350,e.mud||0,1),pr=f('peaking',3200,e.pr||0,1),hi=f('highshelf',8000,e.hi||0),cm=AC.createDynamicsCompressor(),k=e.cp||0,mk=AC.createGain();
+cm.threshold.value=-12-k*30;cm.ratio.value=1+k*5;cm.knee.value=12;cm.attack.value=.01;cm.release.value=.2;mk.gain.value=1+k*.6;hp.connect(lo);lo.connect(md);md.connect(pr);pr.connect(hi);hi.connect(cm);cm.connect(mk);mk.connect(dest);return hp}
+const MOODS={'dark tension':{p:[[45,52,57],[43,50,55],[41,48,53],[43,50,55]],w:'sawtooth',lp:500,bpm:50},'cinematic epic':{p:[[48,55,60,64],[46,53,58,62],[43,50,55,59],[45,52,57,60]],w:'sawtooth',lp:1400,bpm:70,arp:1,kick:1},'calm':{p:[[60,64,67],[57,60,64],[53,57,60],[55,59,62]],w:'sine',lp:1800,bpm:60,arp:1},'upbeat':{p:[[60,64,67],[67,71,74],[69,72,76],[65,69,72]],w:'triangle',lp:3000,bpm:110,arp:1,kick:1},'mystery':{p:[[57,60,64],[56,59,63],[53,57,60],[52,56,59]],w:'triangle',lp:900,bpm:55,arp:1}};
+$('#nv').parentElement.insertAdjacentHTML('afterend',`<div class="row2" style="margin-top:10px"><b>🎚 Voice EQ and compressor</b></div><div class="row2"><button class="pri" id="vp">✨ Make my voice sound professional</button><button id="vo">Off</button><button id="vcl">🧹 Clean noise + normalize loudness</button></div>
+<div class="grid2">${[['lo','Bass',-8,8,1],['pr','Presence',-8,8,1],['hi','Air',-8,8,1],['cp','Compression',0,1,.05]].map(([k,l,a,b,st])=>`<label>${l}<input type="range" data-q="${k}" min="${a}" max="${b}" step="${st}" value="0"></label>`).join('')}</div><p class="m">EQ changes apply the next time you press play, and in the export.</p>
+<div class="row2" style="margin-top:10px"><b>🎼 Music library</b><select id="mm">${Object.keys(MOODS).map(k=>`<option>${k}</option>`).join('')}</select><button id="mg">Generate track</button><span id="mgs" class="m"></span></div><p class="m">Tracks are synthesized in your browser, so they are original and free to use on YouTube. They sound like simple background beds, not studio recordings.</p>`);
+const eqSync=()=>{const e=S.eq||{};document.querySelectorAll('[data-q]').forEach(i=>i.value=e[i.dataset.q]??0)};
+document.querySelectorAll('[data-q]').forEach(i=>i.oninput=e=>{S.eq={...S.eq,on:1,[i.dataset.q]:+e.target.value};save()});
+$('#vp').onclick=()=>{S.eq={on:1,hp:90,lo:-2,mud:-3,pr:3,hi:2,cp:.55};eqSync();save();$('#st').textContent='Professional voice preset on'};
+$('#vo').onclick=()=>{S.eq={on:0};eqSync();save()};
+$('#vcl').onclick=async()=>{if(!nar)return alert('Add narration first.');$('#st').textContent='Cleaning…';await new Promise(r=>setTimeout(r,30));const sr=nar.sampleRate,n=nar.length,C=nar.numberOfChannels,d0=nar.getChannelData(0),w=Math.floor(sr*.02),fr=[];
+for(let i=0;i+w<=n;i+=w){let e=0;for(let j=0;j<w;j+=4)e+=d0[i+j]**2;fr.push(Math.sqrt(e/(w/4)))}
+const so=[...fr].sort((a,b)=>a-b),th=Math.max((so[Math.floor(so.length*.1)]||0)*2.5,.004);let ga=1;const gn=fr.map(v=>{const t=v<th?.12:1;ga+=(t-ga)*(t<ga?.35:.7);return ga});
+const oc=new OfflineAudioContext(C,n,sr),s=oc.createBufferSource(),hp=oc.createBiquadFilter();s.buffer=nar;hp.type='highpass';hp.frequency.value=85;s.connect(hp).connect(oc.destination);s.start();const r=await oc.startRendering();
+let sq=0,c=0,pk=0;for(let ch=0;ch<C;ch++){const d=r.getChannelData(ch);for(let i=0;i<n;i++){d[i]*=gn[Math.min(gn.length-1,Math.floor(i/w))];const a=Math.abs(d[i]);if(a>pk)pk=a;if(!ch&&a>.01){sq+=d[i]*d[i];c++}}}
+const k=Math.min(.95/Math.max(pk,1e-4),.158/Math.max(Math.sqrt(sq/Math.max(1,c)),1e-4));for(let ch=0;ch<C;ch++){const d=r.getChannelData(ch);for(let i=0;i<n;i++)d[i]*=k}
+undoNar=narRaw;narRaw=wavPCM(r);nar=await dec(narRaw);info();rTL();save();$('#st').textContent='Noise gate and loudness applied (undo trim button in Voice report restores the original)'};
+$('#mg').onclick=async()=>{const m=MOODS[$('#mm').value],sr=22050,T=64,oc=new OfflineAudioContext(1,sr*T,sr),bar=240/m.bpm,mf=x=>440*2**((x-69)/12),mix=oc.createGain();mix.gain.value=.5;mix.connect(oc.destination);$('#mgs').textContent='Composing…';await new Promise(r=>setTimeout(r,30));
+const osc=(ty,f,t,d,v,dt=0,lp=m.lp,at=.4)=>{const o=oc.createOscillator(),g2=oc.createGain(),l=oc.createBiquadFilter();o.type=ty;o.frequency.value=f;o.detune.value=dt;l.type='lowpass';l.frequency.value=lp;g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(v,t+d*at);g2.gain.linearRampToValueAtTime(0,t+d+.2);o.connect(l).connect(g2).connect(mix);o.start(t);o.stop(t+d+.25)};
+for(let b=0;b*bar<T-bar;b++){const t=b*bar,ch=m.p[b%4];ch.forEach(nt=>[-6,6].forEach(dt=>osc(m.w,mf(nt),t,bar,.06,dt)));osc('sine',mf(ch[0]-12),t,bar,.2,0,300,.1);
+if(m.arp)for(let i=0;i<8;i++)osc('triangle',mf(ch[i%ch.length]+12),t+i*bar/8,bar/8,.07,0,4000,.02);
+if(m.kick)for(let i=0;i<4;i++){const k=t+i*bar/4,o=oc.createOscillator(),g2=oc.createGain();o.frequency.setValueAtTime(130,k);o.frequency.exponentialRampToValueAtTime(40,k+.15);g2.gain.setValueAtTime(.5,k);g2.gain.exponentialRampToValueAtTime(.001,k+.2);o.connect(g2).connect(mix);o.start(k);o.stop(k+.25)}}
+musRaw=wavPCM(await oc.startRendering());mus=await dec(musRaw);info();rTL();save();$('#mgs').textContent='Added: '+$('#mm').value};
+const _lp2=loadProj;loadProj=async function(id){await _lp2(id);eqSync();$('#swc').checked=!!S.wc;MS.clear();bulk()};
+/* --- draggable timeline --- */
+const _rTL=rTL;rTL=function(){_rTL();const st=starts();[...$('#tl .r').children].forEach((d,i)=>d.insertAdjacentHTML('beforeend',`<i class="hd" data-i="${i}"></i>`));const idx=S.scenes.map((s,i)=>s.sfx!='none'?i:-1).filter(i=>i>=0);document.querySelectorAll('#tl .fx').forEach((d,k)=>{const i=idx[k];d.dataset.i=i;d.style.left=Math.max(0,st[i]+(S.scenes[i].so||0))*pps+'px'})};
+let dg=null,dgd=false;
+$('#tl').addEventListener('pointerdown',e=>{const h=e.target.closest('.hd,.fx');if(!h)return;e.preventDefault();e.stopPropagation();const i=+h.dataset.i,d=h.classList.contains('hd');dg={d,i,x:e.clientX,v:d?S.scenes[i].dur:(S.scenes[i].so||0),st:starts()[i]};dgd=false});
+addEventListener('pointermove',e=>{if(!dg)return;const dx=(e.clientX-dg.x)/pps,s=S.scenes[dg.i];if(Math.abs(e.clientX-dg.x)>2)dgd=true;if(dg.d){s.dur=Math.max(.5,Math.round((dg.v+dx)*10)/10);rGrid();rTL();ui()}else{s.so=Math.max(-dg.st,Math.round((dg.v+dx)*20)/20);rTL()}});
+addEventListener('pointerup',()=>{if(dg){const mv=dgd;dg=null;setTimeout(()=>dgd=false,80);if(mv){save();rIns();draw(cur)}}});
+$('#tlw').addEventListener('click',e=>{if(dgd){e.stopPropagation();e.stopImmediatePropagation()}},true);
+rTL();
+/* --- YouTube pack + fact-check --- */
+$('#d').insertAdjacentHTML('beforeend',`<h3 style="font:800 16px 'Bricolage Grotesque',sans-serif;margin:18px 0 4px">YouTube pack</h3><p class="m">Chapters, title ideas and a description from your script, and a check for claims to verify.</p><div class="row2"><button id="yp">📝 Chapters + description</button><button id="fc">🔎 Fact-check script</button></div><textarea id="yo" style="min-height:220px;display:none"></textarea><div id="fo" style="line-height:1.6"></div>`);
+const jx=t=>JSON.parse((t.match(/\{[\s\S]*\}/)||['{}'])[0]);
+$('#yp').onclick=async()=>{if(!S.scenes.length)return alert('Add scenes first.');const b=$('#yp'),st=starts();b.disabled=true;$('#st').textContent='Writing…';try{
+const L=S.scenes.map((s,i)=>`${i+1} @${fmt(st[i])}: ${String(s.ti??s.cap??'').slice(0,140)}`).join('\n'),r=await aiPost('ai',{prompt:`You help a YouTube documentary creator. Scenes:\n${L}\n\nReturn ONLY JSON: {"chapters":[{"scene":1,"title":"short chapter title"}],"titles":["5 clickable but honest title ideas"],"description":"a 120-word YouTube description"}. Use 5 to 10 chapters at scene numbers, the first must be scene 1.`}),j=jx(r.text);
+const ch=(j.chapters||[]).filter(c=>S.scenes[c.scene-1]).map(c=>`${fmt(st[c.scene-1])} ${c.title}`);if(ch.length&&!ch[0].startsWith('0:00'))ch[0]='0:00'+ch[0].slice(ch[0].indexOf(' '));
+$('#yo').style.display='block';$('#yo').value=`TITLE IDEAS\n${(j.titles||[]).join('\n')}\n\nDESCRIPTION\n${j.description||''}\n\nCHAPTERS\n${ch.join('\n')}`}catch(e){alert('Could not generate: '+e.message)}b.disabled=false;$('#st').textContent=''};
+$('#fc').onclick=async()=>{const sx=(S.script||$('#sx').value||'').trim().slice(0,12000);if(!sx)return alert('Add a script first.');const b=$('#fc');b.disabled=true;$('#fo').textContent='Checking…';try{
+const r=await aiPost('ai',{prompt:`Fact-check pass for a documentary script about real people and events. List factual claims (names, dates, numbers, quotes, causes) that a careful editor should verify before publishing. Do not state that anything is false unless you are certain; say what to verify. Return ONLY JSON: {"claims":[{"claim":"...","risk":"high|medium|low","verify":"what to check and where"}]}. Max 15, riskiest first.\n\nSCRIPT:\n${sx}`}),c=jx(r.text).claims||[];
+$('#fo').innerHTML=c.length?c.map(x=>`<div style="border-left:3px solid ${x.risk=='high'?'#e0231b':x.risk=='medium'?'#ffb545':'#4a8'};padding:2px 8px;margin:6px 0"><b>${esc(x.risk)}</b> · ${esc(x.claim)}<br><span class="m">${esc(x.verify)}</span></div>`).join(''):'<span class="m">No claims flagged.</span>'}catch(e){$('#fo').textContent='Fact-check failed: '+e.message}b.disabled=false};
+/* --- keep long exports alive --- */
+let WK=null;const lockOn=async()=>{try{WK=await navigator.wakeLock?.request('screen')}catch(e){}};
+document.addEventListener('visibilitychange',()=>{if(exporting&&!document.hidden)lockOn()});
+addEventListener('beforeunload',e=>{if(exporting){e.preventDefault();e.returnValue=''}});
+for(const k of ['fastExport','rtExport']){const f=self[k];if(typeof f=='function')self[k]=async function(){await lockOn();try{return await f.apply(this,arguments)}finally{try{WK?.release()}catch(e){}}}}
 </script></body></html>
