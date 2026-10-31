@@ -486,7 +486,7 @@ try{if(!S.lib.length){const ps=sx.split(/\n+/).map(x=>x.trim()).filter(Boolean).
 say('Matching script to scenes…');await runMatch(true);
 say('Generating voice…');await $('#tvg').onclick();if(!nar)throw new Error('voice was not generated');
 say('Transitions and sound effects…');varyTr();autoSfx();
-say('Captions…');try{await document.querySelector('#c #tr').onclick()}catch(e){}
+say('Captions…');try{await document.querySelector('#c #tr').onclick()}catch(e){}try{await alignVoice()}catch(e){}
 S.wc=true;$('#swc').checked=true;rAll();save();say('Done ✓ Review in Scenes, then export.')}catch(e){say('Stopped: '+e.message)}b.disabled=false};
 /* --- sound search + categories --- */
 const CAT={impact:'impact,deep impact,metal slam,explosion,glass break,gavel,door slam,bass drop,sub drop,braam,reverse hit,stamp,thunder,record scratch',ambience:'dark drone,low rumble,office ambience,trading floor,crowd murmur,rain,wind,static,ticking clock,tension riser',ui:'whoosh,swoosh up,swoosh down,pop,ding,error buzz,laser,glitch,news sting,camera shutter,camera flash,cash,coins,cash register,alarm,siren,phone ring,bell toll,suspense',human:'footsteps,typing,keyboard,paper shuffle,knock,applause,heartbeat,crowd murmur'};
@@ -569,4 +569,21 @@ let WK=null;const lockOn=async()=>{try{WK=await navigator.wakeLock?.request('scr
 document.addEventListener('visibilitychange',()=>{if(exporting&&!document.hidden)lockOn()});
 addEventListener('beforeunload',e=>{if(exporting){e.preventDefault();e.returnValue=''}});
 for(const k of ['fastExport','rtExport']){const f=self[k];if(typeof f=='function')self[k]=async function(){await lockOn();try{return await f.apply(this,arguments)}finally{try{WK?.release()}catch(e){}}}}
+
+/* ===== UPGRADE 4: exact alignment of scenes, voice and subtitles ===== */
+const nt=x=>String(x).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');
+function alignPlan(SW,T,dur){const tot=SW.reduce((a,w)=>a+w.length,0)||1;let prev=-1,cum=0;
+const idx=SW.map((w,n)=>{if(!w.length)return null;const exp=Math.round(cum/tot*T.length);cum+=w.length;if(!n)return prev=0;const R=Math.max(12,Math.round(T.length*.12));let best=null,bs=0;
+for(let i=Math.max(prev+1,exp-R);i<=Math.min(T.length-1,exp+R);i++){let sc=T[i].k==w[0]?2:0;const nx=T.slice(i+1,i+7).map(x=>x.k);for(let k=1;k<Math.min(4,w.length);k++)if(nx.includes(w[k]))sc++;if(sc>bs||(sc==bs&&sc>1&&Math.abs(i-exp)<Math.abs(best-exp))){bs=sc;best=i}}
+if(bs<2)best=Math.min(T.length-1,Math.max(prev+1,exp));if(best==null)best=Math.min(T.length-1,Math.max(prev+1,exp));return prev=best});
+const st=idx.map((k,n)=>n==0?0:k==null?null:Math.max(0,T[k].s-.1));
+for(let i=0;i<st.length;i++)if(st[i]==null){let a=i-1,b=i;while(b<st.length&&st[b]==null)b++;const ta=st[a],tb=b<st.length?st[b]:dur;for(let j=i;j<b;j++)st[j]=ta+(tb-ta)*(j-a)/(b-a+0);i=b-1}
+for(let i=1;i<st.length;i++)st[i]=Math.max(st[i],st[i-1]+.5);
+return st.map((t,i)=>Math.max(.5,(i+1<st.length?st[i+1]:Math.max(dur,t+.5))-t))}
+async function alignVoice(){if(!nar||!S.scenes.length)throw new Error('Add scenes and narration first');
+if(!S.cues?.length){if(!narRaw)throw new Error('No narration audio');$('#st').textContent='Listening to the voice…';const j=await aiPost('transcribe',null,narRaw);S.cues=j.vtt?parseSRT(j.vtt):(j.segments||[]).map(s=>({s:s.start,e:s.end,t:String(s.text).trim()}));if(!S.cues.length)throw new Error('No transcript came back')}
+const T=(S.words?.length?S.words:WL()).map(x=>({k:nt(x.w),s:x.s,e:x.e})).filter(x=>x.k),SW=S.scenes.map(s=>s.ti!=null?[]:String(s.cap||'').split(/\s+/).map(nt).filter(Boolean));
+if(!T.length)throw new Error('No words in transcript');const d=alignPlan(SW,T,nar.duration);S.scenes.forEach((s,i)=>s.dur=d[i]);rAll();save();$('#st').textContent='Images and subtitles aligned to the voice ✓'}
+$('#fit').insertAdjacentHTML('afterend','<button id="al" class="pri">🎯 Align images + subtitles to voice (exact)</button>');
+$('#al').onclick=async()=>{const b=$('#al');b.disabled=true;try{await alignVoice()}catch(e){$('#st').textContent='';alert('Could not align: '+e.message)}b.disabled=false};
 </script></body></html>
