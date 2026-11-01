@@ -8,6 +8,9 @@ const json = (obj, status = 200) =>
     headers: { 'content-type': 'application/json' },
   });
 
+const LIMIT_MSG =
+  'Your free Cloudflare AI allowance for today is used up. It resets at midnight UTC (3:00 AM Ethiopia time). Meanwhile use a Budget voice (cheap), or upgrade Workers AI to paid.';
+
 const toBase64 = (buf) => {
   const u = new Uint8Array(buf);
   let s = '';
@@ -84,6 +87,7 @@ const AURA_VOICES = [
 async function audioResponse(out) {
   const headers = { 'content-type': 'audio/mpeg' };
   if (out instanceof Response) {
+    if (out.status === 429) return json({ error: LIMIT_MSG }, 429);
     if (!out.ok) return json({ error: 'tts failed (' + out.status + ')' }, 502);
     return new Response(out.body, { headers });
   }
@@ -196,7 +200,9 @@ export default {
       try {
         return await handler(request, env);
       } catch (e) {
-        return json({ error: String(e.message || e) }, 500);
+        const m = String(e.message || e);
+        if (/429|limit|quota|capacity|neurons/i.test(m)) return json({ error: LIMIT_MSG }, 429);
+        return json({ error: m }, 500);
       }
     }
 
