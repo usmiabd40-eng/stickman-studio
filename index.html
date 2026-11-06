@@ -144,7 +144,7 @@ header h1 i#lg{background:none!important;box-shadow:0 4px 16px #2fd18b55,0 0 0 0
 </main>
 <script>
 let W=1920,H=1080;const $=q=>document.querySelector(q),cv=$('#cv'),g=cv.getContext('2d');
-const MO=['zoom in','zoom out','pan left','pan right','shake','still','pan up','pan down','push in slow','drift','dolly zoom','ken burns'],TR=['fade','slide','flash','cut','slide right','slide up','zoom through','dip to black','wipe','glitch'],FX=['none','footsteps','suspense','impact','typing','alarm','cash','dark drone','deep impact','low rumble','whoosh','office ambience','keyboard','paper shuffle','trading floor','ticking clock','tension riser','phone ring','metal slam','camera shutter','heartbeat','gavel','record scratch','glass break','explosion','coins','cash register','siren','news sting','door slam','knock','applause','swoosh up','swoosh down','pop','ding','error buzz','glitch','static','thunder','rain','wind','sub drop','laser','bell toll','crowd murmur','stamp','camera flash','braam','bass drop','reverse hit'];const BASEFX=FX.length;
+const MO=['zoom in','zoom out','pan left','pan right','shake','still','pan up','pan down','push in slow','drift','dolly zoom','ken burns'],TR=['fade','slide','flash','cut','slide right','slide up','zoom through','dip to black','wipe','glitch'],FX=['none','footsteps','suspense','impact','typing','alarm','cash','dark drone','deep impact','low rumble','whoosh','office ambience','keyboard','paper shuffle','trading floor','ticking clock','tension riser','phone ring','metal slam','camera shutter','heartbeat','gavel','record scratch','glass break','explosion','coins','cash register','siren','news sting','door slam','knock','applause','swoosh up','swoosh down','pop','ding','error buzz','glitch','static','thunder','rain','wind','sub drop','laser','bell toll','crowd murmur','stamp','camera flash','braam','bass drop','reverse hit','click','mouse click'];const BASEFX=FX.length;
 let S={lib:[],scenes:[],script:'',mv:.25,caps:true},nar,mus,narRaw,musRaw,sel=0,cur=0,playing=false,AC,master,dst,srcs=[],t0=0,onend,pps=40,exporting=false;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const total=()=>S.scenes.reduce((a,s)=>a+s.dur,0),starts=()=>{let a=0;return S.scenes.map(s=>{const r=a;a+=s.dur;return r})};
@@ -185,10 +185,10 @@ function hold(t,d,f,v,ty='sine'){const o=AC.createOscillator(),n=AC.createGain()
 function stopAll(){srcs.forEach(s=>{try{s.stop()}catch(e){}});srcs=[]}
 function stop(){playing=false;stopAll();$('#pp').innerHTML=svg(P.play)}
 async function play(from=0,end){ac();await AC.resume();stopAll();playing=true;onend=end;$('#pp').innerHTML=svg(P.pause);const n=AC.currentTime+.05;t0=n-from;
-if(nar&&from<nar.duration){const s=AC.createBufferSource(),gn=AC.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);s.start(n,from);srcs.push(s)}
-if(mus){const s=AC.createBufferSource(),n2=AC.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(n,from,total()));s.start(n,from%mus.duration);srcs.push(s);
-if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let last=null;for(let i=Math.floor(from/.1);i<nar._sp.length;i++){const v=nar._sp[i];if(v!==last){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,n+Math.max(0,i*.1-from),.2);last=v}}}}
-starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none'&&st>=from)sfxV(f,n+st-from,S.scenes[i].sv??1)});loop()}
+{const o=S.no||0;if(nar&&from<nar.duration+o){const s=AC.createBufferSource(),gn=AC.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);s.start(n+Math.max(0,o-from),Math.max(0,from-o));srcs.push(s)}}
+if(mus){const s=AC.createBufferSource(),n2=AC.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(n,from,total()));{const mo=S.mo||0;s.start(n+Math.max(0,mo-from),Math.max(0,from-mo)%mus.duration)}srcs.push(s);
+if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let last=null;for(let i=Math.max(0,Math.floor((from-(S.no||0))/.1));i<nar._sp.length;i++){const v=nar._sp[i];if(v!==last){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,n+Math.max(0,i*.1+(S.no||0)-from),.2);last=v}}}}
+schedSfx(n,from);loop()}
 function loop(){if(!playing)return;cur=AC.currentTime-t0;if(cur>=total()){cur=total();const e=onend;stop();draw(cur-.01);ui();e&&e();return}draw(cur);ui();requestAnimationFrame(loop)}
 /* ---------- rendering ---------- */
 function shot(s,p,dx,a){if(s.ti!=null)return drawTitle(s,p,a,dx);const im=S.lib[s.im]?.el;if(!im)return;let z=1,ox=0,oy=0;const m=s.mo,fx0=(s.fx??.5)-.5,fy0=(s.fy??.5)-.5;
@@ -255,9 +255,11 @@ function info(){$('#ni').textContent=nar?fmt(nar.duration)+' loaded':'none';$('#
 /* images */
 function shrink(f){return new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,1920/i.width),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(i.src);r(c.toDataURL('image/jpeg',.88))};i.src=URL.createObjectURL(f)})}
 const ld=i=>new Promise(r=>{const e=new Image();e.onload=()=>{S.lib[i].el=e;r()};e.src=S.lib[i].url});
-$('#fi').onchange=async e=>{$('#st').textContent='Importing…';const fs=[...e.target.files].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
-for(const f of fs){const url=await shrink(f),im=S.lib.push({name:f.name,url})-1;await ld(im);S.scenes.push({im,dur:5,mo:MO[S.scenes.length%5],tr:'fade',cap:'',sfx:'click'})}
-e.target.value='';rAll();save()};
+$('#fi').onchange=async e=>{$('#st').textContent='Importing…';const od=window.__imOrder?window.__imOrder():'name';let fs=[...e.target.files];
+if(od=='name')fs.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'}));else if(od=='date')fs.sort((a,b)=>(a.lastModified-b.lastModified)||a.name.localeCompare(b.name,undefined,{numeric:true}));
+let at=(window.__imAfter&&window.__imAfter()&&S.scenes.length)?sel+1:S.scenes.length;const first=at;
+for(const f of fs){const url=await shrink(f),im=S.lib.push({name:f.name,url})-1;await ld(im);S.scenes.splice(at,0,{im,dur:5,mo:MO[at%5],tr:'fade',cap:'',sfx:'click'});at++}
+e.target.value='';sel=Math.min(first,S.scenes.length-1);rAll();save();$('#st').textContent=fs.length+' images added in order'};
 /* audio files */
 $('#fn').onchange=async e=>{narRaw=await e.target.files[0].arrayBuffer();nar=await dec(narRaw);info();rTL();save()};
 $('#fm').onchange=async e=>{musRaw=await e.target.files[0].arrayBuffer();mus=await dec(musRaw);info();rTL();save()};
@@ -324,9 +326,9 @@ try{const mx=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{
 const ve=new VideoEncoder({output:(c,m)=>mx.addVideoChunk(c,m),error:e=>console.error(e)});ve.configure({codec:'avc1.640028',width:W,height:H,bitrate:8e6,framerate:FPS});
 es.textContent='Mixing audio…';await new Promise(r=>setTimeout(r));
 const oc=new OfflineAudioContext(2,Math.ceil(48000*T),48000),A0=AC,M0=master;let ab;AC=oc;master=oc.createGain();master.connect(oc.destination);
-try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);s.start(0)}
-if(mus){const s=oc.createBufferSource(),n2=oc.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(0,0,T));s.start(0);if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let l=null;nar._sp.forEach((v,i)=>{if(v!==l){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,i*.1,.2);l=v}})}}
-starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none')sfxV(f,st,S.scenes[i].sv??1)});ab=await oc.startRendering()}finally{AC=A0;master=M0}
+try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);{const o=S.no||0;s.start(Math.max(0,o),Math.max(0,-o))}}
+if(mus){const s=oc.createBufferSource(),n2=oc.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(0,0,T));s.start(Math.max(0,S.mo||0));if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let l=null;nar._sp.forEach((v,i)=>{if(v!==l){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,Math.max(0,i*.1+(S.no||0)),.2);l=v}})}}
+schedSfx(0,0);ab=await oc.startRendering()}finally{AC=A0;master=M0}
 const ae=new AudioEncoder({output:(c,m)=>mx.addAudioChunk(c,m),error:e=>console.error(e)});ae.configure({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:192000});
 const L=ab.getChannelData(0),R=ab.getChannelData(1),CH=4800;for(let o=0;o<L.length;o+=CH){const n=Math.min(CH,L.length-o),d=new Float32Array(n*2);d.set(L.subarray(o,o+n));d.set(R.subarray(o,o+n),n);const ad=new AudioData({format:'f32-planar',sampleRate:48000,numberOfFrames:n,numberOfChannels:2,timestamp:o/48*1000,data:d});ae.encode(ad);ad.close()}
 await ae.flush();
@@ -347,9 +349,9 @@ $('#tr').onclick=async()=>{if(!narRaw)return alert('Upload narration first.');co
 try{const j=await aiPost('transcribe',null,narRaw);S.cues=j.vtt?parseSRT(j.vtt):(j.segments||[]).map(s=>({s:s.start,e:s.end,t:String(s.text).trim()}));if(!S.cues.length)throw new Error('empty result');$('#st').textContent=S.cues.length+' captions created';draw(cur);save()}catch(e){$('#st').textContent='';alert('Transcription is not available here. Import an .srt instead. ('+e.message+')')}b.disabled=false};
 /* cloud render client + hooks used by the render server */
 async function mixAudio(T){ac();const oc=new OfflineAudioContext(2,Math.ceil(48000*T),48000),A0=AC,M0=master;AC=oc;master=oc.createGain();master.connect(oc.destination);
-try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);s.start(0)}
-if(mus){const s=oc.createBufferSource(),n2=oc.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(0,0,T));s.start(0);if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let l=null;nar._sp.forEach((v,i)=>{if(v!==l){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,i*.1,.2);l=v}})}}
-starts().forEach((st,i)=>{const f=S.scenes[i].sfx;if(f&&f!='none')sfxV(f,st,S.scenes[i].sv??1)});return await oc.startRendering()}finally{AC=A0;master=M0}}
+try{if(nar){const s=oc.createBufferSource(),gn=oc.createGain();gn.gain.value=S.nv??1;s.buffer=nar;s.connect(gn).connect(master);{const o=S.no||0;s.start(Math.max(0,o),Math.max(0,-o))}}
+if(mus){const s=oc.createBufferSource(),n2=oc.createGain();n2.gain.value=S.mv;s.buffer=mus;s.loop=true;s.connect(n2).connect(musOut(0,0,T));s.start(Math.max(0,S.mo||0));if(nar&&S.duck!==false){nar._sp=nar._sp||spk();let l=null;nar._sp.forEach((v,i)=>{if(v!==l){n2.gain.setTargetAtTime(v?S.mv*.3:S.mv,Math.max(0,i*.1+(S.no||0)),.2);l=v}})}}
+schedSfx(0,0);return await oc.startRendering()}finally{AC=A0;master=M0}}
 function wavB64(ab){const L=ab.getChannelData(0),R=ab.getChannelData(1),n=L.length,b=new DataView(new ArrayBuffer(44+n*4)),w=(o,t)=>[...t].forEach((c,i)=>b.setUint8(o+i,c.charCodeAt(0)));w(0,'RIFF');b.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');b.setUint32(16,16,true);b.setUint16(20,1,true);b.setUint16(22,2,true);b.setUint32(24,48000,true);b.setUint32(28,192000,true);b.setUint16(32,4,true);b.setUint16(34,16,true);w(36,'data');b.setUint32(40,n*4,true);for(let i=0;i<n;i++){b.setInt16(44+i*4,Math.max(-1,Math.min(1,L[i]))*32767,true);b.setInt16(46+i*4,Math.max(-1,Math.min(1,R[i]))*32767,true)}return b64(b.buffer)}
 window.__load=async j=>{S={...S,...j.S};narRaw=j.nar?unb64(j.nar):null;musRaw=j.mus?unb64(j.mus):null;nar=narRaw?await dec(narRaw):null;mus=musRaw?await dec(musRaw):null;CU={};CR={};for(const k in j.cust||{}){CR[k]=unb64(j.cust[k]);CU[k]=await dec(CR[k]);FX.push(k)}await Promise.all(S.lib.map((_,i)=>ld(i)));await document.fonts.ready;return{T:total(),FPS:30}};
 window.__frames=(i,n)=>{const T=total(),o=[];for(let k=i;k<i+n;k++){draw(Math.min(k/30,T-.01));o.push(cv.toDataURL('image/jpeg',.92).slice(23))}return o};
@@ -411,6 +413,8 @@ if(n=='camera flash'){tone(t,.6,4200,.1,'sine',1400);burst(t,.12,8000,.5,'highpa
 if(n=='braam'){tone(t,2.6,55,.8,'sawtooth',46);tone(t,2.4,110,.4,'sawtooth',90);tone(t,2,165,.25,'square',140);burst(t,.5,400,.7)}
 if(n=='bass drop'){tone(t,.6,200,.9,'sine',35);bed(t,1.5,200,.7,'lowpass',.02)}
 if(n=='reverse hit'){bed(t,1.8,200,.6,'lowpass',1.7,3000);tone(t+1.75,.9,80,1,'sine',28)}
+if(n=='click'){burst(t,.025,4200,1,'highpass');tone(t,.03,2200,.55,'square',900);burst(t+.07,.02,2500,.5,'highpass');tone(t+.07,.02,1200,.25,'square',700)}
+if(n=='mouse click')for(let i=0;i<2;i++){const k=t+i*.14;burst(k,.025,4200,1,'highpass');tone(k,.03,2200,.55,'square',900);burst(k+.06,.02,2500,.5,'highpass');tone(k+.06,.02,1200,.25,'square',700)}
 }
 /* ----- transitions ----- */
 function trans(s,pv,q,p){const tr=s.tr,qe=q*q*(3-2*q);
@@ -508,7 +512,11 @@ function bulk(){let b=$('#bulk');if(!b){b=document.createElement('div');b.id='bu
  $('#bm').onchange=e=>e.target.value&&ap('mo',e.target.value);$('#bt').onchange=e=>e.target.value&&ap('tr',e.target.value);$('#bf').onchange=e=>e.target.value&&ap('sfx',e.target.value);
  $('#bdo').onclick=()=>{const v=+$('#bd').value;if(v>=1)ap('dur',v)};$('#bg').onchange=e=>ap('mg',+e.target.value)}
 const row=$('#vt').parentElement;
-row.insertAdjacentHTML('beforeend','<button id="ud" title="Undo (Ctrl+Z)">↶ Undo</button><button id="rd" title="Redo (Ctrl+Y)">↷ Redo</button><button id="ms">☑ Select multiple</button><button id="ck" title="Give every scene without a sound the click sound">🖱 Click on all</button>');$('#ck').onclick=()=>{let n=0;S.scenes.forEach(s=>{if(s.ti==null&&(!s.sfx||s.sfx=='none')){s.sfx='click';n++}});rAll();save();flash(n+' scenes now use Click')};
+row.insertAdjacentHTML('beforeend','<button id="ud" title="Undo (Ctrl+Z)">↶ Undo</button><button id="rd" title="Redo (Ctrl+Y)">↷ Redo</button><button id="ms">☑ Select multiple</button><button id="ck" title="Give every scene without a sound the click sound">🖱 Click on all</button>');$('#ck').onclick=()=>{const pic=S.scenes.filter(x=>x.ti==null);if(!pic.length)return flash('Add picture scenes first');let n=0;
+ pic.forEach(x=>{if(!x.sfx||x.sfx=='none'){x.sfx='click';n++}});
+ if(!n){const already=pic.filter(x=>x.sfx=='click').length;if(already==pic.length){stopAll();sfx('click',ac().currentTime+.05);return flash('All '+already+' scenes already use Click')}
+  if(!confirm('Every scene already has a sound. Replace ALL of them with Click?'))return;pic.forEach(x=>{x.sfx='click';x.so=0;n++})}
+ stopAll();sfx('click',ac().currentTime+.05);rAll();save();flash(n+' scenes now use Click')};
 $('#ud').onclick=undo;$('#rd').onclick=redo;
 $('#ms').onclick=()=>{multi=!multi;$('#ms').classList.toggle('on',multi);if(!multi)msel.clear();rGrid()};
 
@@ -535,7 +543,7 @@ function sceneMg(m,n,from){const g2=AC.createGain(),st=starts();g2.gain.value=1;
  S.scenes.forEach((s,i)=>{const t=n+st[i]-from,v=s.mg??1;if(t+s.dur<n)return;g2.gain.setTargetAtTime(v,Math.max(n,t),.35)});g2.connect(m);return g2}
 
 /* ---------- 4. SFX search + categories ---------- */
-const CAT={'Impacts':/impact|slam|gavel|explosion|bass drop|braam|reverse|glass|stamp|thunder|metal/,'Ambience':/drone|rumble|office|trading|rain|wind|murmur|ticking|heartbeat|static|bell/,'Money':/cash|coin|register/,'Tech':/typing|keyboard|glitch|buzz|ding|pop|laser|shutter|flash|phone/,'Movement':/foot|whoosh|swoosh|door|knock|paper/,'Drama':/alarm|siren|suspense|riser|sting|scratch|applause/};
+const CAT={'Impacts':/impact|slam|gavel|explosion|bass drop|braam|reverse|glass|stamp|thunder|metal/,'Ambience':/drone|rumble|office|trading|rain|wind|murmur|ticking|heartbeat|static|bell/,'Money':/cash|coin|register/,'Tech':/click|typing|keyboard|glitch|buzz|ding|pop|laser|shutter|flash|phone/,'Movement':/foot|whoosh|swoosh|door|knock|paper/,'Drama':/alarm|siren|suspense|riser|sting|scratch|applause/};
 let fcat='All',fq='';
 const _fxBtns=fxBtns;fxBtns=function(){const b=$('#fxb');if(!b)return;let bar=$('#fxbar');
  if(!bar){bar=document.createElement('div');bar.id='fxbar';bar.innerHTML='<input id="fxq" placeholder="Search sounds…" style="width:100%;margin:6px 0"><div class="gap" id="fxc"></div>';b.before(bar);$('#fxq').oninput=e=>{fq=e.target.value.toLowerCase();fxBtns()}}
@@ -721,6 +729,128 @@ $('#cg').onclick=async()=>{const nm=$('#cl').value;if(!nm)return;$('#cx').textCo
 $('#cd').onclick=async()=>{const nm=$('#cl').value;if(!nm||!confirm('Delete "'+nm+'" from the cloud?'))return;try{await cf('del',nm);clist()}catch(e){alert(e.message)}};
 document.querySelector('[data-t=d]').addEventListener('click',()=>{if(!window.__cl){window.__cl=1;clist()}});
 window.__a3={thumb,genImage,aiJSON};
+})();
+
+</script>
+<script id="v2">
+/* ===== v2: 23 new transitions, draggable timeline, free SFX placement, import order ===== */
+function schedSfx(n,from){const st=starts();
+ const put=(f,t,v)=>{if(!f||f=='none')return;t=Math.max(0,t);if(t<from)return;sfxV(f,n+t-from,v)};
+ S.scenes.forEach((s,i)=>put(s.sfx,st[i]+(s.so||0),s.sv??1));
+ (S.xfx||[]).forEach(x=>put(x.f,x.t,x.v??1))}
+(()=>{
+const flash=m=>{const e=$('#st');if(e){e.textContent=m;setTimeout(()=>{if(e.textContent==m)e.textContent=''},3500)}};
+const css=document.createElement('style');css.textContent=`
+.th.dov{outline:3px dashed #ffd400;outline-offset:-3px}
+.fx{width:14px!important;cursor:ew-resize;touch-action:none}.fx.xf{background:#4da3ff!important;box-shadow:0 0 10px #4da3ff!important}
+.na,.mu{cursor:grab;touch-action:none}.sc{cursor:grab}
+.xchip{display:inline-flex;gap:6px;align-items:center;padding:3px 10px;margin:3px;border-radius:999px;background:#ffffff18;font-size:12px}
+.xchip b{cursor:pointer;color:#ff8a7a}`;
+document.head.appendChild(css);
+
+/* ---------- 1. transitions ---------- */
+const NEW=['Matte Snapshots','Slight Jitter','Snap Back','Vibration Amped','Heatwave Flash','Dynamic Smear','Quick Dazzle','Shake & Flash','Blurry Shock','Flashing Down','Twisted Pixels','White Strobe','Clap & Pull','Ghost Glow','Negative Unveil','Tremble & Shrink','Pull Down','Dazzle Blur','Shift Down','Spaceship Beam','Contrast Overlay','Seesaw Blur','Flash Blast'];
+NEW.forEach(n=>{if(!TR.includes(n))TR.push(n)});
+const tmp=document.createElement('canvas'),tg=tmp.getContext('2d'),sm=document.createElement('canvas'),sg=sm.getContext('2d');
+const ez=q=>q*q*(3-2*q),bump=q=>Math.sin(Math.PI*q),rnd=a=>(Math.random()*2-1)*a;
+const cap=()=>{if(tmp.width!=W||tmp.height!=H){tmp.width=W;tmp.height=H}tg.clearRect(0,0,W,H);tg.drawImage(cv,0,0)};
+const cross=(s,pv,q,p)=>{shot(pv,1,0,1);shot(s,p,0,q)};
+const cutAt=(s,pv,q,p,m=.5)=>{q<m?shot(pv,1,0,1):shot(s,p,0,1)};
+const over=(c,a)=>{g.save();g.globalAlpha=Math.max(0,Math.min(1,a));g.fillStyle=c;g.fillRect(0,0,W,H);g.restore()};
+const redraw=fn=>{cap();g.save();g.globalAlpha=1;g.fillStyle='#000';g.fillRect(0,0,W,H);fn();g.restore()};
+const put=(dx=0,dy=0,sc=1,rot=0,al=1)=>{g.save();g.globalAlpha=al;g.translate(W/2+dx,H/2+dy);g.rotate(rot);g.scale(sc,sc);g.drawImage(tmp,-W/2,-H/2);g.restore()};
+const star=(x,y,r)=>{g.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4,rr=i%2?r*.18:r;g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}g.closePath();g.fill()};
+const T={
+'Matte Snapshots'(s,pv,q,p){const st=Math.floor(q*5);if(st==0)return shot(pv,1,0,1);if(st>=4)return shot(s,p,0,1);
+ g.fillStyle='#f3efe6';g.fillRect(0,0,W,H);const k=[1,.78,.86,.93][st],a=[0,-.035,.025,-.012][st];
+ g.save();g.translate(W/2,H/2);g.rotate(a);g.scale(k,k);g.translate(-W/2,-H/2);g.fillStyle='#0004';g.fillRect(14,18,W,H);g.beginPath();g.rect(0,0,W,H);g.clip();shot(s,p,0,1);g.restore()},
+'Slight Jitter'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const a=4+12*bump(q);put(rnd(a),rnd(a),1.04,rnd(.006))})},
+'Snap Back'(s,pv,q,p){cutAt(s,pv,q,p,.18);redraw(()=>{let k;if(q<.18)k=1+q*1.3;else{const t=(q-.18)/.82;k=1+.3*(1-t)*(1-t)*(.6+.4*Math.cos(t*10))}put(0,0,k)})},
+'Vibration Amped'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const a=14+60*bump(q);put(rnd(a),rnd(a),1.08);for(let i=0;i<3;i++)put(rnd(a),rnd(a),1.08,rnd(.02),.35)})},
+'Heatwave Flash'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const b=bump(q);for(let y=0;y<H;y+=18){const o=Math.sin(y*.03+q*30)*70*b;g.drawImage(tmp,0,y,W,18,o-80,y,W+160,18)}g.globalCompositeOperation='lighter';over('#ff6a1a',.5*b)});over('#fff',Math.pow(bump(q),4)*.55)},
+'Dynamic Smear'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const amp=190*bump(q);put(0,0,1.03);for(let i=1;i<=9;i++)put((i%2?1:-1)*i*amp/9,0,1.03,0,.28)})},
+'Quick Dazzle'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const b=bump(q);g.filter=`brightness(${1+b*.7}) saturate(${1+b*.6})`;put(0,0,1+.05*b);g.filter='none';g.globalCompositeOperation='lighter';g.fillStyle='#fff';for(let i=0;i<16;i++)star(Math.random()*W,Math.random()*H,(20+Math.random()*60)*b)});over('#fff',bump(q)*.25)},
+'Shake & Flash'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const b=bump(q);put(rnd(40*b),rnd(28*b),1.07,rnd(.02*b))});if(q>.4&&q<.6)over('#fff',1-Math.abs(q-.5)*10)},
+'Blurry Shock'(s,pv,q,p){cutAt(s,pv,q,p);redraw(()=>{const b=bump(q);g.filter=`blur(${b*34}px)`;put(0,0,1.12+.1*b)})},
+'Flashing Down'(s,pv,q,p){const e=ez(q);g.save();g.translate(0,e*H);shot(pv,1,0,1);g.restore();g.save();g.translate(0,-(1-e)*H);shot(s,p,0,1);g.restore();if(Math.floor(q*8)%2==1&&q<.9)over('#fff',.55)},
+'Twisted Pixels'(s,pv,q,p){cutAt(s,pv,q,p);redraw(()=>{const b=bump(q),px=1+b*60,w=Math.max(6,Math.round(W/px)),h=Math.max(6,Math.round(H/px));sm.width=w;sm.height=h;sg.drawImage(tmp,0,0,w,h);g.imageSmoothingEnabled=false;g.translate(W/2,H/2);g.rotate(.16*Math.sin(q*Math.PI*2)*b);g.scale(1.2,1.2);g.drawImage(sm,-W/2,-H/2,W,H);g.imageSmoothingEnabled=true})},
+'White Strobe'(s,pv,q,p){cutAt(s,pv,q,p);if(q<.92&&Math.floor(q*10)%2==0)over('#fff',.92)},
+'Clap & Pull'(s,pv,q,p){if(q<.5){shot(pv,1,0,1);const d=(1-ez(q*2))*W/2;g.save();g.beginPath();g.rect(0,0,W/2,H);g.clip();g.translate(-d,0);shot(s,p,0,1);g.restore();g.save();g.beginPath();g.rect(W/2,0,W/2,H);g.clip();g.translate(d,0);shot(s,p,0,1);g.restore()}
+ else{const t=(q-.5)*2;shot(s,p,0,1);redraw(()=>put(0,0,1+.14*(1-t)*(1-t)));over('#fff',(1-t)*.5)}},
+'Ghost Glow'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const b=bump(q);put(0,0,1);g.globalCompositeOperation='lighter';g.filter=`blur(${20*b}px) brightness(1.4)`;put(0,0,1.04,0,.75*b)})},
+'Negative Unveil'(s,pv,q,p){const e=ez(q),x=W*e,w=W*.3;shot(pv,1,0,1);g.save();g.beginPath();g.rect(0,0,x,H);g.clip();shot(s,p,0,1);g.restore();cap();g.save();g.beginPath();g.rect(x-w,0,w,H);g.clip();g.filter='invert(1)';g.drawImage(tmp,0,0);g.restore()},
+'Tremble & Shrink'(s,pv,q,p){const e=ez(q);shot(s,p,0,1);g.save();g.translate(W/2+rnd(14*(1-q)),H/2+rnd(10*(1-q)));g.rotate(rnd(.03*(1-q)));g.scale(1-.4*e,1-.4*e);g.translate(-W/2,-H/2);shot(pv,1,0,1-e);g.restore()},
+'Pull Down'(s,pv,q,p){const e=ez(q);g.save();g.translate(0,e*H);shot(pv,1,0,1);g.restore();g.save();g.translate(0,-(1-e)*H);shot(s,p,0,1);g.restore();redraw(()=>{g.filter=`blur(${bump(q)*12}px)`;put(0,0,1.03)})},
+'Dazzle Blur'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const b=bump(q);g.filter=`blur(${b*22}px) brightness(${1+b*.9}) saturate(${1+b})`;put(0,0,1.08)})},
+'Shift Down'(s,pv,q,p){const e=ez(q),d=H*.18;g.save();g.translate(0,e*d);shot(pv,1,0,1);g.restore();g.save();g.translate(0,-(1-e)*d);shot(s,p,0,q);g.restore()},
+'Spaceship Beam'(s,pv,q,p){const e=ez(q),w=Math.max(6,W*e),x=(W-w)/2;shot(pv,1,0,1);g.save();g.beginPath();g.rect(x,0,w,H);g.clip();shot(s,p,0,1);g.restore();
+ g.save();g.globalCompositeOperation='lighter';g.fillStyle=`rgba(200,240,255,${.55*(1-e)})`;g.fillRect(x,0,w,H);[x,x+w].forEach(ed=>{const gr=g.createLinearGradient(ed-100,0,ed+100,0);gr.addColorStop(0,'#0000');gr.addColorStop(.5,'rgba(120,225,255,.9)');gr.addColorStop(1,'#0000');g.fillStyle=gr;g.fillRect(ed-100,0,200,H)});g.restore()},
+'Contrast Overlay'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{const b=bump(q);g.filter=`contrast(${1+b*2.2}) brightness(${1+b*.25}) saturate(${1+b*.8})`;put(0,0,1)})},
+'Seesaw Blur'(s,pv,q,p){cross(s,pv,q,p);redraw(()=>{g.filter=`blur(${bump(q)*12}px)`;put(0,0,1.24,Math.sin(q*Math.PI*2)*.1)})},
+'Flash Blast'(s,pv,q,p){cutAt(s,pv,q,p,.35);redraw(()=>put(0,0,1+(q<.35?q*.6:(1-q)*.22)));const a=q<.35?q/.35:Math.pow(1-(q-.35)/.65,1.5);g.save();g.globalAlpha=a*.85;const gr=g.createRadialGradient(W/2,H/2,0,W/2,H/2,H*.9);gr.addColorStop(0,'#fff');gr.addColorStop(1,'#fff0');g.fillStyle=gr;g.fillRect(0,0,W,H);g.restore();over('#fff',a*.7)}
+};
+const _t0=trans;
+trans=function(s,pv,q,p){const f=T[s.tr];if(!f)return _t0(s,pv,q,p);g.globalAlpha=1;try{f(s,pv,q,p)}catch(e){g.filter='none';g.globalCompositeOperation='source-over';g.globalAlpha=1;_t0({...s,tr:'fade'},pv,q,p)}g.filter='none';g.globalCompositeOperation='source-over';g.globalAlpha=1};
+varyTr=function(){const pool=TR.filter(x=>x!='cut');let last='';S.scenes.forEach((s,i)=>{if(!i){s.tr='fade';return}let c;do{c=pool[Math.floor(Math.random()*pool.length)]}while(c==last);s.tr=c;last=c})};
+
+/* ---------- 2. import order + insert position ---------- */
+$('#fi').parentElement.insertAdjacentHTML('afterend',`<div class="row2"><label class="m">Order: <select id="imo"><option value="name">By file name (1,2,3…)</option><option value="date">By date</option><option value="sel">Exactly as selected</option></select></label><label class="m" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="ima"> Insert after the selected scene</label></div>`);
+window.__imOrder=()=>$('#imo').value;window.__imAfter=()=>$('#ima').checked;
+
+/* ---------- 3. grid drag highlight ---------- */
+const gd2=$('#grid');
+gd2.addEventListener('dragover',e=>{const t=e.target.closest('.th');document.querySelectorAll('.th.dov').forEach(x=>x.classList.remove('dov'));if(t)t.classList.add('dov')});
+gd2.addEventListener('dragend',()=>document.querySelectorAll('.th.dov').forEach(x=>x.classList.remove('dov')));
+const _rg=rGrid;rGrid=function(){_rg();document.querySelectorAll('#grid img').forEach(i=>i.draggable=false)};
+
+/* ---------- 4. inspector additions (SFX timing, transition preview) ---------- */
+const _rI=rIns;rIns=function(){_rI();const s=S.scenes[sel],el=$('#ins');if(!s)return;
+ el.insertAdjacentHTML('beforeend',`<div class="bulk"><label>Sound effect timing: <span id="sov">${(s.so||0).toFixed(2)}</span>s (0 = scene start, negative = before it)</label><input type="range" id="sof" min="-3" max="${Math.max(3,Math.ceil(s.dur))}" step=".05" value="${s.so||0}"><button id="sof0">Reset timing</button></div>`);
+ $('#sof').oninput=e=>{s.so=+e.target.value;$('#sov').textContent=s.so.toFixed(2);rTL()};$('#sof').onchange=()=>{save();if(s.sfx&&s.sfx!='none'){stopAll();sfx(s.sfx,ac().currentTime+.05)}};
+ $('#sof0').onclick=()=>{s.so=0;rIns();rTL();save()};
+ $('#tr').addEventListener('change',()=>{if(sel<1||!S.scenes.length)return;const t=Math.max(0,starts()[sel]-.45);play(t,()=>{});setTimeout(()=>{if(playing)stop()},1250)})};
+
+/* ---------- 5. timeline editing ---------- */
+$('#tlw').insertAdjacentHTML('beforebegin',`<div class="row2" style="margin-top:10px"><span class="m" id="tlh">Drag a scene to reorder · drag the green (narration) / purple (music) bars · drag sound markers · double-click a marker to delete.</span><label class="m">Zoom <input type="range" id="tlz" min="10" max="120" value="${pps}" style="width:120px"></label></div>`);
+$('#tlz').oninput=e=>{pps=+e.target.value;rTL()};
+const mp=$('#mi')&&$('#mi').parentElement;
+(mp||$('#fn').parentElement).insertAdjacentHTML('afterend',`<div class="row2"><label class="m">Narration starts at <input id="nof" type="number" step="0.1" min="0" style="width:80px"> s</label><label class="m">Music starts at <input id="mof" type="number" step="0.1" min="0" style="width:80px"> s</label><span class="m">You can also drag the bars on the timeline.</span></div>`);
+$('#nof').onchange=e=>{S.no=Math.max(0,+e.target.value||0);rTL();save()};$('#mof').onchange=e=>{S.mo=Math.max(0,+e.target.value||0);rTL();save()};
+($('#fxbar')||$('#fxb')).insertAdjacentHTML('beforebegin',`<label class="m" style="display:flex;gap:6px;align-items:center;margin:6px 0"><input type="checkbox" id="xfp"> Tap a sound to ADD it at the playhead (then drag it on the timeline)</label><div id="xfl"></div>`);
+$('#fxb').addEventListener('click',e=>{const f=e.target.dataset.f;if(f&&$('#xfp').checked){(S.xfx=S.xfx||[]).push({f,t:Math.min(cur,Math.max(0,total()-.05)),v:1});rTL();save();flash('Added "'+f+'" at '+fmt(cur))}});
+$('#xfl').onclick=e=>{const k=e.target.dataset.x;if(k!=null){S.xfx.splice(+k,1);rTL();save()}};
+
+const snapT=(v,st)=>{for(const x of [0,...st,total()])if(Math.abs(x-v)*pps<8)return x;return Math.round(v*20)/20};
+function xDrag(el,get,onMove,onDone,onTap){el.onpointerdown=e=>{if(e.pointerType=='mouse'&&e.button!==0)return;e.preventDefault();e.stopPropagation();el.setPointerCapture(e.pointerId);const x0=e.clientX,v0=get(),st=starts();let mvd=false,v=v0;
+ el.onpointermove=ev=>{const dx=ev.clientX-x0;if(Math.abs(dx)>3)mvd=true;if(!mvd)return;v=Math.max(0,snapT(v0+dx/pps,st));onMove(v);const wr=$('#tlw').getBoundingClientRect();if(ev.clientX>wr.right-40)$('#tlw').scrollLeft+=12;else if(ev.clientX<wr.left+40)$('#tlw').scrollLeft-=12};
+ el.onpointerup=el.onpointercancel=()=>{el.onpointermove=el.onpointerup=el.onpointercancel=null;if(mvd){window.__tld=true;setTimeout(()=>window.__tld=false,60);onDone(v)}else onTap&&onTap()}}}
+
+const _rT=rTL;rTL=function(){_rT();const tl=$('#tl'),rows=tl.querySelectorAll('.r');if(rows.length<5)return;const st=starts(),Tt=total(),[rs,,rn,rm,rf]=rows;
+ let wmax=Math.max(Tt,nar?(nar.duration+(S.no||0)):0,mus?Tt:0)*pps+60;if(wmax>parseFloat(tl.style.width||0))tl.style.width=wmax+'px';
+ if($('#nof')&&document.activeElement!==$('#nof'))$('#nof').value=S.no||0;if($('#mof')&&document.activeElement!==$('#mof'))$('#mof').value=S.mo||0;
+ /* scene reorder */
+ [...rs.children].forEach((c,i)=>{if(!c.classList.contains('sc'))return;c.style.touchAction='none';
+  c.onpointerdown=e=>{if(e.target.classList.contains('hd')||(e.pointerType=='mouse'&&e.button!==0))return;const x0=e.clientX;let mvd=false,j=i,ind;c.setPointerCapture(e.pointerId);
+   c.onpointermove=ev=>{if(!mvd&&Math.abs(ev.clientX-x0)<6)return;if(!mvd){mvd=true;c.style.opacity=.4;ind=document.createElement('div');ind.style.cssText='position:absolute;top:0;bottom:0;width:4px;background:#ffd400;z-index:6;pointer-events:none;border-radius:2px;box-shadow:0 0 8px #ffd400';tl.appendChild(ind)}
+    const x=ev.clientX-tl.getBoundingClientRect().left;j=0;S.scenes.forEach((s,k)=>{if(k!=i&&(st[k]+s.dur/2)*pps<x)j++});
+    ind.style.left=S.scenes.filter((_,k)=>k!=i).slice(0,j).reduce((a,s)=>a+s.dur,0)*pps-2+'px';
+    const wr=$('#tlw').getBoundingClientRect();if(ev.clientX>wr.right-40)$('#tlw').scrollLeft+=14;else if(ev.clientX<wr.left+40)$('#tlw').scrollLeft-=14};
+   c.onpointerup=c.onpointercancel=()=>{c.onpointermove=c.onpointerup=c.onpointercancel=null;if(mvd){window.__tld=true;setTimeout(()=>window.__tld=false,60);if(j!=i)mv(i,j);else rTL()}}}});
+ /* narration + music bars */
+ const na=rn.querySelector('.na');if(na){na.style.marginLeft=(S.no||0)*pps+'px';na.title='Drag to move the narration. Double-click to reset to 0.';
+  xDrag(na,()=>S.no||0,v=>na.style.marginLeft=v*pps+'px',v=>{S.no=v;rTL();save()});na.ondblclick=()=>{S.no=0;rTL();save()}}
+ const mu=rm.querySelector('.mu');if(mu){mu.style.marginLeft=(S.mo||0)*pps+'px';mu.style.width=Math.max(10,(Tt-(S.mo||0))*pps)+'px';mu.title='Drag to move when the music starts. Double-click to reset.';
+  xDrag(mu,()=>S.mo||0,v=>{mu.style.marginLeft=v*pps+'px';mu.style.width=Math.max(10,(Tt-v)*pps)+'px'},v=>{S.mo=v;rTL();save()});mu.ondblclick=()=>{S.mo=0;rTL();save()}}
+ /* sfx markers (scene sounds + extra sounds) */
+ const idx=[];S.scenes.forEach((s,i)=>{if(s.sfx!='none')idx.push(i)});
+ [...rf.querySelectorAll('.fx')].forEach((el,k)=>{const i=idx[k],s=S.scenes[i];if(!s)return;const t0=()=>st[i]+(s.so||0);el.style.left=Math.max(0,t0()*pps)+'px';el.title=s.sfx+' (drag to move, double-click to delete)';
+  xDrag(el,t0,v=>el.style.left=v*pps+'px',v=>{s.so=Math.abs(v-st[i])<.03?0:Math.round((v-st[i])*100)/100;rIns();rTL();save()},()=>{stopAll();sfx(s.sfx,ac().currentTime+.05)});
+  el.ondblclick=()=>{s.sfx='none';s.so=0;rAll();save()}});
+ (S.xfx||[]).forEach((x,k)=>{const el=document.createElement('div');el.className='fx xf';el.style.left=x.t*pps+'px';el.title=x.f+' (extra sound — drag to move, double-click to delete)';rf.appendChild(el);
+  xDrag(el,()=>x.t,v=>el.style.left=v*pps+'px',v=>{x.t=Math.min(v,Math.max(0,Tt-.05));rTL();save()},()=>{stopAll();sfx(x.f,ac().currentTime+.05)});
+  el.ondblclick=()=>{S.xfx.splice(k,1);rTL();save()}});
+ const xl=$('#xfl');if(xl)xl.innerHTML=(S.xfx||[]).map((x,k)=>`<span class="xchip">${esc(x.f)} @ ${fmt(x.t)}<b data-x="${k}">✕</b></span>`).join('')};
+rTL();
 })();
 
 </script></body></html>
